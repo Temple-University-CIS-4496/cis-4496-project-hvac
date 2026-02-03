@@ -8,17 +8,18 @@
 
 - What business problems are we trying to address?
 
-  Saving energy, saving on costs, saving the environment.
+  Are we able to illustrate to the customer more detials about potential savings based on restricted set points, or encouraging changing set points. 
 
 ## Scope
 
 - What data science solutions are we trying to build?
 
-  Trying to predict HVAC runtime based on the outdoor weather. Trying to see how much money can be saved by changing the thermostat temperature. Checking if that varies by the weather outside.
+  Trying to predict HVAC runtime based on the outdoor weather. Using this to understand how much money could be saved by making changes to the termostat set points, and does it vary by wheater? 
 
 - What will we do?
 
-**TODO**
+We are going to analyze data from 1000 thermostats across 2 years and create a model that will use hvac runtime to predict how long the hvac will run based on the temperature outside and the set point. 
+**TODO** ADD more detials
 
 - How is it going to be consumed by the customer?
 
@@ -39,22 +40,24 @@
 
 - What are the qualitative objectives? (e.g. reduce user churn)
 
-  Improving comfort of the occupant inside of their home.
+  Improving comfort of the occupant inside of their home. Buisness objective: If I ask a resident to lower their set point in the winter one degree I need data to show that it will save them energy and money. 
 
 - What is a quantifiable metric (e.g. reduce the fraction of users with 4-week inactivity)
 
-  Reduce the cost of HVAC-related bills.
+  Reduce the cost of HVAC-related bills. 
 
 - Quantify what improvement in the values of the metrics are useful for the customer scenario (e.g. reduce the fraction of users with 4-week inactivity by 20%)
 
-  Improve the cost by 3% per degree.
+  We can give concret energy/money data that will help them make infomred decisions to try and improve the cost by 3%.
+  Buisness questions: can we give customers an effiencincy score and how they compare to everyone else? To help push energy effiencicy 
 
 - What is the baseline (current) value of the metric? (e.g. current fraction of users with 4-week inactivity = 60%)
 
-**TODO**
+During our project we will determine the current HVAC baseline each house pays based off runtime and 17cents per KWH. 
 
 - How will we measure the metric? (e.g. A/B test on a specified subset for a specified period; or comparison of performance after implementation to baseline)
 
+2.5 ton AC unit is 8,790 watts. 
 We will measure it by
 
 ## Plan
@@ -65,6 +68,8 @@ We will measure it by
 
 - Data
   - What data do we expect? Raw data in the customer data sources (e.g. on-prem files, SQL, on-prem Hadoop etc.)
+We expect CSV files 
+  
 - Data movement from on-prem to Azure using ADF or other data movement tools (Azcopy, EventHub etc.) to move either
   - all the data,
   - after some pre-aggregation on-prem,
