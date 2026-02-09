@@ -1,14 +1,14 @@
 # Project Charter
 
-##Project Charter: HVAC Runtime Prediction & Energy Optimization 
+## Project Charter: HVAC Runtime Prediction & Energy Optimization 
 
-##Business Background 
+## Business Background 
 
 Telkonet Inc. is currently a major player in the energy management field, yet they are running into a serious roadblock regarding how heating and cooling systems waste energy. Most of the trouble comes down to thermostats that stick to fixed settings. These devices essentially ignore how long a building holds onto heat, and they don't really pay attention to the shifting weather outside either. Truth be told, this is a massive financial drain. To put it in perspective, the U.S. Department of Energy found that heating and cooling make up 45% of all residential energy use (Center for Sustainable Systems, 2024). Traditional controls just let that waste happen. However, smarter systems like Model Predictive Control have shown that it is possible to save about 40% of that energy (Serale et al., 2018). There is a huge gap between how things work now and how efficient they could actually be. 
 
 The real opportunity here is to build a Counterfactual Energy Analysis tool. This is a system that helps property managers and residents move away from just reacting to problems such that they can start predicting them instead. We want to show people the actual financial value of energy-efficient habits. The best way to do that is by illustrating the cost difference between actual runtimes and simulated runtimes under better settings. This makes it much easier to make data-driven choices without making the people inside the building uncomfortable. 
 
-##Scope & Data Science Methodology 
+## Scope & Data Science Methodology 
 
 The system we are looking at depends on a solid data processing pipeline. This pipeline has to handle raw information from about 1,000 different thermostats over a two-year span. This data is often very sparse. To put it simply, the thermostat only records a new number whenever something actually changes. To manage that, the team is going to stick closely to the Phase 1 protocols, which involve cleaning the data and using linear interpolation. This is a necessary step so that we can line up the thermostat logs with outdoor weather data on the exact same timeline. 
 
@@ -16,7 +16,7 @@ Moreover, we are going to calculate runtime by looking at specific signals from 
 
 The main result of all this work will be a comparison engine for What-If simulations. We will feed the model two separate inputs: the real weather with real settings, and then that same weather with optimized settings. After that, the system calculates the difference in how long the unit ran. Property managers can then use this as a monthly auditing tool. It helps them spot high-waste units so they can adjust their policies for the next month before bills get too high. 
 
-##Personnel 
+## Personnel 
 
 The project is going to be handled by a team of data scientists who will work closely with the project lead and the client contacts. We want to make sure we hit every technical milestone, so the team is organized to handle everything from the first data pull to the final dashboard. The core team consists of Zack Aidarov, Ayush Gupta, Lauren Sobieski, Max Suc, Andrew Coffman, and Dylan Heathcote. 
 
@@ -30,7 +30,7 @@ Application Development: This group is in charge of the part the user actually s
 
 This setup is flexible enough that we can move people around as the project shifts from analysis to development. 
 
-##Metrics & Quantifiable Objectives 
+## Metrics & Quantifiable Objectives 
 
 The main way we are measuring success is through Estimated Cost Savings. While we are definitely tracking technical accuracy, the project is only a win if we can identify at least 5% in energy waste that can be recovered across the whole portfolio. 
 
@@ -45,7 +45,7 @@ To visualize our end-to-end data flow, we have created a one-page flowchart. Thi
 <img width="463" height="345" alt="Screenshot 2026-02-09 at 6 21 15 PM" src="https://github.com/user-attachments/assets/aeb64147-c592-4728-b6e2-915ce93b5a7f" />
 
 
-##Plan 
+## Plan 
 
 The timeline is broken down into five phases so that we can move logically from raw data to a finished product. 
 
@@ -59,7 +59,7 @@ Phase 4: Dashboard + Scaling. At this point, we scale the models to the full set
 
 Phase 5: Predictive Model with Weather Forecasts. This is the stretch goal where we pull in weather forecasts from an API. This would allow the system to suggest temperature changes for efficiency before the weather actually hits. 
 
-##Architecture & Communication 
+## Architecture & Communication 
 
 The technical setup is built to handle a lot of time-series data without slowing down. The data comes from 1,000 homes over two years, and since each file is about 4MB, we are looking at roughly 4GB total. Efficiency is the name of the game here. Because there is so much data, we are going to compress the files by changing the running mode values from off, heat, or cool to 0, 1, or 2 respectively. 
 
@@ -71,7 +71,7 @@ Effective communication is the only way this cross-functional team succeeds. We 
 
  
 
-##References 
+## References 
  
  
 
