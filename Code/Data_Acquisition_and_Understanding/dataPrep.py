@@ -14,18 +14,21 @@ def main(input_path: str):
     df["Setpoint"] = (
         df["Setpoint"]
         .ffill()
+        .fillna(0)
     )
 
     df["FanState"] = (
         df["FanState"]
         .map({"on": 1, "off": 0})
         .ffill()
+        .fillna(0)
         .astype(int)
     )
 
     df["OutputState"] = (
         df["output_state"]
         .ffill()
+        .fillna("idle")
         .ne("idle")
         .astype(int)
     )
@@ -34,6 +37,7 @@ def main(input_path: str):
         df["running_mode"]
         .map({"cool": 1, "heat": 1, "off": 0})
         .ffill()
+        .fillna(0)
         .astype(int)
     )
 
