@@ -11,23 +11,29 @@ def main(input_path: str):
 
     df["Temperature"] = df["Temperature"].astype(float)
 
+    df["Setpoint"] = (
+        df["Setpoint"]
+        .ffill()
+    )
+
     df["FanState"] = (
         df["FanState"]
         .map({"on": 1, "off": 0})
-        .fillna(0)
+        .ffill()
         .astype(int)
     )
 
     df["OutputState"] = (
         df["output_state"]
-        .notna()
+        .ffill()
+        .ne("idle")
         .astype(int)
     )
 
     df["RunningMode"] = (
         df["running_mode"]
         .map({"cool": 1, "heat": 1, "off": 0})
-        .fillna(0)
+        .ffill()
         .astype(int)
     )
 
