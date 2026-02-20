@@ -1,91 +1,82 @@
 # Project Charter
 
-## Business background
+## Project Charter: HVAC Runtime Prediction & Energy Optimization 
 
-- Who is the client, what business domain the client is in.
+## Business Background 
 
-  Telkonet Inc. Energy Management/Heating and Cooling domain.
+Telkonet Inc. is currently a major player in the energy management field, yet they are running into a serious roadblock regarding how heating and cooling systems waste energy. Most of the trouble comes down to thermostats that stick to fixed settings. These devices essentially ignore how long a building holds onto heat, and they don't really pay attention to the shifting weather outside either. Truth be told, this is a massive financial drain. To put it in perspective, the U.S. Department of Energy found that heating and cooling make up 45% of all residential energy use (Center for Sustainable Systems, 2024). Traditional controls just let that waste happen. However, smarter systems like Model Predictive Control have shown that it is possible to save about 40% of that energy (Serale et al., 2018). There is a huge gap between how things work now and how efficient they could actually be. 
 
-- What business problems are we trying to address?
+The real opportunity here is to build a Counterfactual Energy Analysis tool. This is a system that helps property managers and residents move away from just reacting to problems such that they can start predicting them instead. We want to show people the actual financial value of energy-efficient habits. The best way to do that is by illustrating the cost difference between actual runtimes and simulated runtimes under better settings. This makes it much easier to make data-driven choices without making the people inside the building uncomfortable. 
 
-  Are we able to illustrate to the customer more detials about potential savings based on restricted set points, or encouraging changing set points. 
+## Scope & Data Science Methodology 
 
-## Scope
+The system we are looking at depends on a solid data processing pipeline. This pipeline has to handle raw information from about 1,000 different thermostats over a two-year span. This data is often very sparse. To put it simply, the thermostat only records a new number whenever something actually changes. To manage that, the team is going to stick closely to the Phase 1 protocols, which involve cleaning the data and using linear interpolation. This is a necessary step so that we can line up the thermostat logs with outdoor weather data on the exact same timeline. 
 
-- What data science solutions are we trying to build?
+Moreover, we are going to calculate runtime by looking at specific signals from the output status, such as when the heat is actively running, rather than just looking at the general system mode. This is important because it helps us tell the difference between the system actually using energy and the system just sitting on standby. Once that data is ready, it will feed into a predictive engine. In addition to that, the team will use a smaller training set during Phase 2 to try out different models. We want to explore decision trees as well as deep learning methods like LSTMs or Transformers. These models have to be tough enough to handle sudden weather shifts, especially those sharp spikes in usage that happen when the temperature outside drops fast. 
 
-  Trying to predict HVAC runtime based on the outdoor weather. Using this to understand how much money could be saved by making changes to the termostat set points, and does it vary by wheater? 
+The main result of all this work will be a comparison engine for What-If simulations. We will feed the model two separate inputs: the real weather with real settings, and then that same weather with optimized settings. After that, the system calculates the difference in how long the unit ran. Property managers can then use this as a monthly auditing tool. It helps them spot high-waste units so they can adjust their policies for the next month before bills get too high. 
 
-- What will we do?
+## Personnel 
 
-We are going to analyze data from 1000 thermostats across 2 years and create a model that will use hvac runtime to predict how long the hvac will run based on the temperature outside and the set point. 
-**TODO** ADD more detials
+The project is going to be handled by a team of data scientists who will work closely with the project lead and the client contacts. We want to make sure we hit every technical milestone, so the team is organized to handle everything from the first data pull to the final dashboard. The core team consists of Zack Aidarov, Ayush Gupta, Lauren Sobieski, Max Suc, Andrew Coffman, and Dylan Heathcote. 
 
-- How is it going to be consumed by the customer?
+We are avoiding a setup where everyone has one rigid task because that usually creates a lot of bottlenecks. Instead, everyone shares ownership of the code. All that being said, the work is still divided into three main areas to keep things organized: 
 
-  The customer will be able to save money. Possibly make a GUI that would allow the customer to get the live data. Possibly also have predictive modeling using the meteorology data.
+Data Engineering: This group focuses on the backend infrastructure. They are the ones building the pipeline to clean up the logs and compress the data so it runs fast. Not only that, but they have to make sure the large CSV files stay valid and that the interpolation logic actually works. 
 
-## Personnel
+Modeling & Simulation: This part of the project is all about the core data science problems. This team develops and tests the algorithms to predict runtime and figure out the savings. They will be doing a lot of testing on both tree-based and deep learning models to find the most accurate one. 
 
-- Who are on this project:
-  - Microsoft:
-    - Project lead
-    - PM
-    - Data scientist(s): Zack Aidarov, Ayush Gupta, Lauren Sobieski, Max Suc, Andrew Coffman, Dylan Heathcote
-  - Client:
-    - Data administrator
-    - Business contact
+Application Development: This group is in charge of the part the user actually sees. They are building the web dashboard and the interface. Their job is to take all that complex math from the backend and turn it into something a property manager can actually understand and use. 
 
-## Metrics
+This setup is flexible enough that we can move people around as the project shifts from analysis to development. 
 
-- What are the qualitative objectives? (e.g. reduce user churn)
+## Metrics & Quantifiable Objectives 
 
-  Improving comfort of the occupant inside of their home. Buisness objective: If I ask a resident to lower their set point in the winter one degree I need data to show that it will save them energy and money. 
+The main way we are measuring success is through Estimated Cost Savings. While we are definitely tracking technical accuracy, the project is only a win if we can identify at least 5% in energy waste that can be recovered across the whole portfolio. 
 
-- What is a quantifiable metric (e.g. reduce the fraction of users with 4-week inactivity)
+We define this metric by taking the difference between the baseline runtime and the optimized runtime, then multiplying that by the power the hardware uses, which is about 8.79 kilowatts for a standard unit. We also have to multiply by the cost of electricity. Since prices change depending on where you are, the calculator will check savings at different rates, such as 0.15 USD or 0.20 USD per kilowatt-hour. 
 
-  Reduce the cost of HVAC-related bills. 
+Qualitative Objective: We want to make the people in the homes more comfortable while giving property managers the proof they need to change settings. 
 
-- Quantify what improvement in the values of the metrics are useful for the customer scenario (e.g. reduce the fraction of users with 4-week inactivity by 20%)
+Technical Metric: The model needs to be accurate. To be specific, the average error, or RMSE, should be less than 5 minutes every hour. On top of that, we are aiming for a consistency score of less than 30%. This follows the ASHRAE (2014) standard for models that are considered properly calibrated to real building data. 
 
-  We can give concret energy/money data that will help them make infomred decisions to try and improve the cost by 3%.
-  Buisness questions: can we give customers an effiencincy score and how they compare to everyone else? To help push energy effiencicy 
+To visualize our end-to-end data flow, we have created a one-page flowchart. This flow chart starts with raw data processing and ends with the output. 
 
-- What is the baseline (current) value of the metric? (e.g. current fraction of users with 4-week inactivity = 60%)
+<img width="463" height="345" alt="Screenshot 2026-02-09 at 6 21 15 PM" src="https://github.com/user-attachments/assets/aeb64147-c592-4728-b6e2-915ce93b5a7f" />
 
-During our project we will determine the current HVAC baseline each house pays based off runtime and 17cents per KWH. 
 
-- How will we measure the metric? (e.g. A/B test on a specified subset for a specified period; or comparison of performance after implementation to baseline)
+## Plan 
 
-2.5 ton AC unit is 8,790 watts. 
-We will measure it by
+The timeline is broken down into five phases so that we can move logically from raw data to a finished product. 
 
-## Plan
+Phase 1: Data Preprocessing + Data Analysis. We will clean the data to get rid of any weird inconsistencies. Then we align the weather and HVAC data using interpolation to create a unified timeline. We also need to interpret the on/off signals to get consistent runtime data and establish a financial baseline. 
 
-- Phases (milestones), timeline, short description of what we'll do in each phase.
+Phase 2: Develop Models. This involves using a small subset of the data to explore different time series models. We want to test neural network solutions like LSTMs or Transformers to see how they handle complex relationships in the data. 
 
-## Architecture
+Phase 3: Evaluate Models. We will use a separate validation set so the model doesn't just memorize the training data. We will also use cross-validation to make sure the model stays stable over different periods of time. 
 
-- Data
-  - What data do we expect? Raw data in the customer data sources (e.g. on-prem files, SQL, on-prem Hadoop etc.)
-We expect CSV files 
-  
-- Data movement from on-prem to Azure using ADF or other data movement tools (Azcopy, EventHub etc.) to move either
-  - all the data,
-  - after some pre-aggregation on-prem,
-  - Sampled data enough for modeling
+Phase 4: Dashboard + Scaling. At this point, we scale the models to the full set of 1,000 thermostats. We also build the dashboard features so users can upload new data and see analytics or charts. 
 
-- What tools and data storage/analytics resources will be used in the solution e.g.,
-  - ASA for stream aggregation
-  - HDI/Hive/R/Python for feature construction, aggregation and sampling
-  - AzureML for modeling and web service operationalization
-- How will the score or operationalized web service(s) (RRS and/or BES) be consumed in the business workflow of the customer? If applicable, write down pseudo code for the APIs of the web service calls.
-  - How will the customer use the model results to make decisions
-  - Data movement pipeline in production
-  - Make a 1 slide diagram showing the end to end data flow and decision architecture
-    - If there is a substantial change in the customer's business workflow, make a before/after diagram showing the data flow.
+Phase 5: Predictive Model with Weather Forecasts. This is the stretch goal where we pull in weather forecasts from an API. This would allow the system to suggest temperature changes for efficiency before the weather actually hits. 
 
-## Communication
+## Architecture & Communication 
 
-- How will we keep in touch? Weekly meetings?
-- Who are the contact persons on both sides?
+The technical setup is built to handle a lot of time-series data without slowing down. The data comes from 1,000 homes over two years, and since each file is about 4MB, we are looking at roughly 4GB total. Efficiency is the name of the game here. Because there is so much data, we are going to compress the files by changing the running mode values from off, heat, or cool to 0, 1, or 2 respectively. 
+
+For tools, we are using Kaggle for the initial storage to make it easier for the team to collaborate. We are using Python for all the modeling and evaluation because it has all the standard libraries we need. The dashboard itself will be built with HTML, CSS, and JS, and we might use Django for the backend if the functionality needs to be more robust. 
+
+At the end of the day, the customer is going to use these results to decide where to set their thermostats. People usually aren't motivated to change their habits unless you can show them exactly how much money they are going to save. 
+
+Effective communication is the only way this cross-functional team succeeds. We will use a group chat for quick questions and Outlook for sharing files or code. We also plan to meet outside of class every week to keep things moving. Finally, we will use a Github project board to keep track of who is doing what so everything stays transparent. 
+
+ 
+
+## References 
+ 
+ 
+
+Bamdad, K., Mohammadzadeh, N., Cholette, M., & Perera, S. (2023). Model predictive control for energy optimization of HVAC systems using EnergyPlus and ACO algorithm. Buildings, 13(12), 3084. https://doi.org/10.3390/buildings13123084 
+
+Casimirri, M. (2025). Leveraging ASHRAE 14 Guidelines for Robust Building Energy Modeling: Computer Simulation and Decarbonization Strategies. International Journal of Energy Management (IJEM, 7(1). 
+
+Residential buildings factsheet | center for sustainable systems. Residential Buildings Factsheet. (2024). https://css.umich.edu/publications/factsheets/built-environment/residential-buildings-factsheet  
