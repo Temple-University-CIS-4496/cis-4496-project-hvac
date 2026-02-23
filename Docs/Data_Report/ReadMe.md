@@ -1,4 +1,4 @@
-# DataReport Folder: Location to place documents describing results of data exploration_
+# DataReport Folder: Location to place documents describing results of data exploration
 1. Data Defintion.md
 This document provides a central hub for the raw data sources, the processed/transformed data, and feature sets 
   
