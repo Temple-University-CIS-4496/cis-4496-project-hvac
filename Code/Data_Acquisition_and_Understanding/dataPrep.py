@@ -41,6 +41,24 @@ def main(input_path: str):
         .astype(int)
     )
 
+    df["Timestamp"] = pd.to_datetime(df["Timestamp"])
+
+    df["timestamp_diff"] = df["Timestamp"].diff()
+    df["runtime_change"] = df["timestamp_diff"].where((df["FanState"] == 1) & (df["FanState"].shift(1) == 1))
+
+    df["CumulativeRuntime"] = (
+        df["runtime_change"].cumsum()
+    )
+
+    df["CumulativeCost"] = (
+        df["CumulativeRuntime"].dt.total_seconds() / 3600 * 0.17
+    )
+
+    df = df.drop(
+        columns=["timestamp_diff", "runtime_change"],
+        errors="ignore"
+    )
+
     df = df.drop(
         columns=["Mode", "Occupied", "RentalStatus", "output_state", "running_mode"],
         errors="ignore"
