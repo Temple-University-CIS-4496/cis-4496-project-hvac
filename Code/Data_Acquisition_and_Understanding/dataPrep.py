@@ -94,7 +94,7 @@ def run(input_dir, outdoor_filename, output_dir):
 
         # load raw data
         #
-        df = pd.read_csv(csv_path, sep=",", parse_dates=["Timestamp"], low_memory=False)
+        df = pd.read_csv(csv_path, sep=";", parse_dates=["Timestamp"], low_memory=False)
 
         # map to standard internal column names as established in original script
         #
