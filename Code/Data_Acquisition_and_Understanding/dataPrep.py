@@ -119,7 +119,13 @@ def run(input_dir, outdoor_filename, output_dir):
 
         # FanState mapping (on:1, off:0)
         #
-        df["FanState"] = pd.to_numeric(df["FanState"], errors="coerce").ffill().fillna(0).astype(int)
+        df["FanState"] = (
+            df["FanState"]
+            .map({"on": 1, "off": 0})
+            .ffill()
+            .fillna(0)
+            .astype(int)
+        )
 
         # OutputState mapping (idle:0, active:1)
         #
@@ -128,7 +134,13 @@ def run(input_dir, outdoor_filename, output_dir):
 
         # RunningMode logic
         #
-        df["RunningMode"] = pd.to_numeric(df["RunningMode"], errors="coerce").ffill().fillna(0).astype(int)
+        df["RunningMode"] = (
+            df["RunningMode"]
+            .map({"cool": 2, "heat": 1, "off": 0})
+            .ffill()
+            .fillna(0)
+            .astype(int)
+        )
         
         df = df.sort_values("Timestamp").reset_index(drop=True)
         df["timestamp_diff"] = df["Timestamp"].diff()
@@ -148,9 +160,9 @@ def run(input_dir, outdoor_filename, output_dir):
 
         # extract date components
         #
-        df["Year"] = df["Timestamp"].dt.year
-        df["Month"] = df["Timestamp"].dt.month
-        df["Day"] = df["Timestamp"].dt.day
+        # df["Year"] = df["Timestamp"].dt.year
+        # df["Month"] = df["Timestamp"].dt.month
+        # df["Day"] = df["Timestamp"].dt.day
 
         # map numeric running mode back to string labels for dummy creation
         #
