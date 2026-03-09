@@ -114,18 +114,8 @@ def run(input_dir, outdoor_filename, output_dir):
 
         # FanState mapping (on:1, off:0) handling string inputs
         #
-<<<<<<< HEAD
-        df["FanState"] = (
-            df["FanState"]
-            .map({"on": 1, "off": 0})
-            .ffill()
-            .fillna(0)
-            .astype(int)
-        )
-=======
         df["FanState"] = df["FanState"].ffill().fillna("off")
         df["FanState"] = df["FanState"].astype(str).str.lower().eq("on").astype(int)
->>>>>>> 9547f8b (Update data prep pipeline and eda/cda ipynb)
 
         # OutputState mapping (idle:0, active:1)
         #
@@ -134,19 +124,8 @@ def run(input_dir, outdoor_filename, output_dir):
 
         # RunningMode logic handling string inputs
         #
-<<<<<<< HEAD
-        df["RunningMode"] = (
-            df["RunningMode"]
-            .map({"cool": 2, "heat": 1, "off": 0})
-            .ffill()
-            .fillna(0)
-            .astype(int)
-        )
-        
-=======
         df["RunningMode"] = df["RunningMode"].ffill().fillna("off").astype(str).str.lower()
 
->>>>>>> 9547f8b (Update data prep pipeline and eda/cda ipynb)
         df = df.sort_values("Timestamp").reset_index(drop=True)
         df["timestamp_diff"] = df["Timestamp"].diff()
 
@@ -169,13 +148,6 @@ def run(input_dir, outdoor_filename, output_dir):
         
         # extract date components
         #
-<<<<<<< HEAD
-        # df["Year"] = df["Timestamp"].dt.year
-        # df["Month"] = df["Timestamp"].dt.month
-        # df["Day"] = df["Timestamp"].dt.day
-
-        # map numeric running mode back to string labels for dummy creation
-=======
         df["Year"] = df["Timestamp"].dt.year
         df["Month"] = df["Timestamp"].dt.month
         df["Day"] = df["Timestamp"].dt.day
@@ -183,7 +155,6 @@ def run(input_dir, outdoor_filename, output_dir):
         df["DayOfWeek"] = df["Timestamp"].dt.dayofweek
         
         # create dummies from string column and guarantee all 3 modes exist
->>>>>>> 9547f8b (Update data prep pipeline and eda/cda ipynb)
         #
         df = pd.get_dummies(df, columns=["RunningMode"], prefix="RunningMode", dtype=int)
         
