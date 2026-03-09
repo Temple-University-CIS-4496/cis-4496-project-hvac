@@ -103,22 +103,18 @@ def run(input_dir, outdoor_filename, output_dir):
             "running_mode": "RunningMode", "temp": "Temperature", "set_point": "Setpoint"
         })
 
-        # strip rows before the first valid indoor temperature reading
-        #
-        first_idx = df["Temperature"].first_valid_index()
-        df = df.loc[first_idx:].copy()
 
-
-        # Temperature to float
+        # Temperature to float, completely filled via interpolation
         #
-        df["Temperature"] = df["Temperature"].astype(float)
-
-        # Setpoint ffill and default
+        df["Temperature"] = df["Temperature"].astype(float).interpolate(method="linear").bfill().ffill()
+        
+        # Setpoint ffill, bfill, and default
         #
-        df["Setpoint"] = df["Setpoint"].ffill().fillna(0)
+        df["Setpoint"] = df["Setpoint"].ffill().bfill().fillna(0)
 
-        # FanState mapping (on:1, off:0)
+        # FanState mapping (on:1, off:0) handling string inputs
         #
+<<<<<<< HEAD
         df["FanState"] = (
             df["FanState"]
             .map({"on": 1, "off": 0})
@@ -126,14 +122,19 @@ def run(input_dir, outdoor_filename, output_dir):
             .fillna(0)
             .astype(int)
         )
+=======
+        df["FanState"] = df["FanState"].ffill().fillna("off")
+        df["FanState"] = df["FanState"].astype(str).str.lower().eq("on").astype(int)
+>>>>>>> 9547f8b (Update data prep pipeline and eda/cda ipynb)
 
         # OutputState mapping (idle:0, active:1)
         #
         df["OutputState"] = df["OutputState"].ffill().fillna("idle")
         df["OutputState"] = df["OutputState"].astype(str).str.lower().ne("idle").astype(int)
 
-        # RunningMode logic
+        # RunningMode logic handling string inputs
         #
+<<<<<<< HEAD
         df["RunningMode"] = (
             df["RunningMode"]
             .map({"cool": 2, "heat": 1, "off": 0})
@@ -142,34 +143,54 @@ def run(input_dir, outdoor_filename, output_dir):
             .astype(int)
         )
         
+=======
+        df["RunningMode"] = df["RunningMode"].ffill().fillna("off").astype(str).str.lower()
+
+>>>>>>> 9547f8b (Update data prep pipeline and eda/cda ipynb)
         df = df.sort_values("Timestamp").reset_index(drop=True)
         df["timestamp_diff"] = df["Timestamp"].diff()
 
-        # check for intervals where fan was active
+
+        # check for intervals where fan was active (fill NaNs with 0 to prevent empty columns)
         #
-        df["runtime_change"] = df["timestamp_diff"].where(
-            (df["FanState"] == 1) & (df["FanState"].shift(1) == 1)
+        runtime_sec = df["timestamp_diff"].dt.total_seconds().fillna(0)
+
+        df["runtime_change"] = runtime_sec.where(
+            df["FanState"].shift(1) == 1, 0.0
         )
-        df["CumulativeRuntime"] = df["runtime_change"].dt.total_seconds().cumsum()
+        
+        df["CumulativeRuntime"] = df["runtime_change"].cumsum()
 
         # cost: (hours * rate) * user multiplier of 3
         #
         df["CumulativeCost"] = (
             df["CumulativeRuntime"] / 3600.0 * 0.17 * 3.0
         )
-
+        
         # extract date components
         #
+<<<<<<< HEAD
         # df["Year"] = df["Timestamp"].dt.year
         # df["Month"] = df["Timestamp"].dt.month
         # df["Day"] = df["Timestamp"].dt.day
 
         # map numeric running mode back to string labels for dummy creation
+=======
+        df["Year"] = df["Timestamp"].dt.year
+        df["Month"] = df["Timestamp"].dt.month
+        df["Day"] = df["Timestamp"].dt.day
+        df["Hour"] = df["Timestamp"].dt.hour
+        df["DayOfWeek"] = df["Timestamp"].dt.dayofweek
+        
+        # create dummies from string column and guarantee all 3 modes exist
+>>>>>>> 9547f8b (Update data prep pipeline and eda/cda ipynb)
         #
-        mode_labels = {0: "off", 1: "heat", 2: "cool"}
-        df["RunningMode_Str"] = df["RunningMode"].map(mode_labels)
-        df = pd.get_dummies(df, columns=["RunningMode_Str"], prefix="RunningMode", dtype=int)
-
+        df = pd.get_dummies(df, columns=["RunningMode"], prefix="RunningMode", dtype=int)
+        
+        for col in ["RunningMode_off", "RunningMode_heat", "RunningMode_cool"]:
+            if col not in df.columns:
+                df[col] = 0
+                
         # isolate indoor timestamps for final alignment
         #
         indoor_timestamps = df[['Timestamp']].copy()
