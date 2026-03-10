@@ -53,6 +53,16 @@ def engineer_features(df):
     df = df.dropna()   # drop rows where lag features are NaN
     return df
 
+# feature and target split
+FEATURE_COLS = [
+    "Temperature", "Setpoint", "Outdoor_Temp",
+    "Outdoor_Temp_Min", "Outdoor_Temp_Max", "Outdoor_Humidity",
+    "hour_of_day", "day_of_week", "month",
+    "temp_delta", "temp_range",
+    "runtime_lag1", "runtime_lag24", "runtime_roll3",
+]
+TARGET_COL = "runtime_minutes"
+
 def main(inside_path="../../Sample_Data/Processed/processed_inside.csv", outside_path="outsideweather.csv"):
     df = load_and_merge(inside_path, outside_path)
 
