@@ -18,5 +18,3 @@ Access: We have access to 4,257 thermostats all in the same city
 
 <img width="1068" height="786" alt="image" src="https://github.com/user-attachments/assets/5f553494-7c02-4f90-a857-be367c3618da" />
 
-## Dataset 3: Thermostat names (dictinary in Excel file)
-<img width="1068" height="786" alt="image" src="https://github.com/user-attachments/assets/5999cd0f-1ae8-4d6e-9dce-a06891d1a03e" />
