@@ -1,3 +1,5 @@
+# rolling window linear regression
+# 2 week long window
 # linear regression
 
 # gradient boosted tree
@@ -11,33 +13,15 @@ from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import StandardScaler
 
 # data loading
-def load_and_merge(inside_path, outside_path):
-    # inside data
+def load_and_merge(inside_path, outside_path=None):
     inside = pd.read_csv(inside_path, parse_dates=["Timestamp"])
     inside = inside.sort_values("Timestamp").drop_duplicates("Timestamp")
-
-    # outside data
-    outside = pd.read_csv(outside_path, parse_dates=["Timestamp"])
-    outside = outside.sort_values("Timestamp").drop_duplicates("Timestamp")
-
-    # unified 15 min timelines
-    start = max(inside["Timestamp"].min(), outside["Timestamp"].min())
-    end   = min(inside["Timestamp"].max(), outside["Timestamp"].max())
-    timeline = pd.date_range(start=start, end=end, freq="15min")
-
-    # reindex
-    inside  = inside.set_index("Timestamp").reindex(timeline).interpolate("time")
-    outside = outside.set_index("Timestamp").reindex(timeline).interpolate("time")
-
-    df = inside.join(outside, rsuffix="_out")
-    df.index.name = "Timestamp"
-    df = df.reset_index()
-    return df
+    return inside
 
 # deriving binary 'is_running" from outputstate, then compute runtime minutes per clock-hour (target)
 def compute_runtime_per_hour(df: pd.DataFrame) -> pd.DataFrame:
-    # OutputState == 1  →  unit is actively conditioning (heat OR cool).
-    # OutputState == 0  →  standby / off.
+    # OutputState == 1 - unit is actively conditioning (heat OR cool).
+    # OutputState == 0 - standby / off.
 
     # binary running signal
     df["is_running"] = (df["OutputState"] == 1).astype(int)
@@ -50,13 +34,13 @@ def compute_runtime_per_hour(df: pd.DataFrame) -> pd.DataFrame:
     hourly = (
         df.groupby("hour_bucket")
           .agg(
-              runtime_minutes   = ("runtime_minutes",    "sum"),
-              Temperature       = ("Temperature",        "mean"),
-              Setpoint          = ("Setpoint",           "mean"),
-              Outdoor_Temp      = ("outside_temp",       "mean"),
-              Outdoor_Temp_Min  = ("outside_temp_min",   "mean"),
-              Outdoor_Temp_Max  = ("outside_temp_max",   "mean"),
-              Outdoor_Humidity  = ("outside_humidity",   "mean"),
+              runtime_minutes  = ("runtime_minutes",    "sum"),
+              Temperature      = ("Temperature",        "mean"),
+              Setpoint         = ("Setpoint",           "mean"),
+              Outdoor_Temp     = ("Outdoor_Temperature","mean"),
+              Outdoor_Temp_Min = ("outsideMinTemp",     "mean"),
+              Outdoor_Temp_Max = ("outsideMaxTemp",     "mean"),
+              Outdoor_Humidity = ("outsideHumidity",    "mean"),
           )
           .reset_index()
     )
@@ -120,7 +104,7 @@ def run_linear_baseline(X_train, X_test, y_train, y_test):
     return evaluate("Linear Regression (Baseline)", y_test, preds), model
 
 
-def main(inside_path="../../Sample_Data/Processed/processed_inside.csv", outside_path="../../Sample_Data/Processed/outdoorweather.csv"):
+def main(inside_path="../../Sample_Data/Processed/processed_inside.csv", outside_path="../../Sample_Data/Processed/processedoutdoorweather.csv"):
     df = load_and_merge(inside_path, outside_path)
     df = compute_runtime_per_hour(df)
     df = engineer_features(df)
@@ -151,5 +135,5 @@ def main(inside_path="../../Sample_Data/Processed/processed_inside.csv", outside
 if __name__ == "__main__":
     import sys
     inside_path  = sys.argv[1] if len(sys.argv) > 1 else "../../Sample_Data/Processed/processed_inside.csv"
-    outside_path = sys.argv[2] if len(sys.argv) > 2 else "../../Sample_Data/Processed/outdoorweather.csv"
+    outside_path = sys.argv[2] if len(sys.argv) > 2 else "../../Sample_Data/Processed/processedoutdoorweather.csv"
     main(inside_path, outside_path)
