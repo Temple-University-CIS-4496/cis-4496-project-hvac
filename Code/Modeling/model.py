@@ -122,6 +122,31 @@ def run_linear_baseline(X_train, X_test, y_train, y_test):
 
 def main(inside_path="../../Sample_Data/Processed/processed_inside.csv", outside_path="outsideweather.csv"):
     df = load_and_merge(inside_path, outside_path)
+    df = compute_runtime_per_hour(df)
+    df = engineer_features(df)
+
+    print(f"Dataset shape: {df.shape} | Runtime Range: {df[TARGET_COL].min():.0f}–{df[TARGET_COL].max():.0f} min/hr")
+    # chronological train/test split (80/20)
+    split = int(len(df) * 0.8)
+    train = df.iloc[:split]
+    test  = df.iloc[split:]
+
+    X_train, y_train = train[FEATURE_COLS], train[TARGET_COL]
+    X_test,  y_test  = test[FEATURE_COLS],  test[TARGET_COL]
+
+    print(f"\nTrain: {len(train)} rows | Test: {len(test)} rows")
+
+    # run models
+    results = []
+    lr_metrics, _ = run_linear_baseline(X_train, X_test, y_train, y_test)
+
+    results.append(lr_metrics)
+
+    # summary table
+    print("\n")
+    print("model comparison summary\n")
+    summary = pd.DataFrame(results).set_index("model")
+    print(summary.to_string())
 
 if __name__ == "__main__":
     import sys
