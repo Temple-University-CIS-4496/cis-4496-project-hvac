@@ -15,3 +15,6 @@ This directory contains scripts and notebooks for preprocessing raw HVAC data, a
 
 * **`TimestampAnalysis.ipynb`**
   An EDA notebook that analyzes the temporal gaps in the raw IoT logs to identify the longest continuous stretches of usable data for modeling.
+
+* **`outsideDataPrep.py`**
+  This a preprocessing script for the outdoor weather data. 
