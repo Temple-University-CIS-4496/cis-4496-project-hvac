@@ -32,6 +32,27 @@ def load_and_merge(inside_path, outside_path):
     df = df.reset_index()
     return df
 
+# add time-based and physics-inspired features.
+def engineer_features(df):
+    df = df.copy()
+    df["hour_of_day"]   = df["hour_bucket"].dt.hour
+    df["day_of_week"]   = df["hour_bucket"].dt.dayofweek
+    df["month"]         = df["hour_bucket"].dt.month
+
+    # temp delta: how hard the HVAC has to work
+    df["temp_delta"]    = df["Setpoint"] - df["Outdoor_Temp"]
+    df["temp_range"]    = df["Outdoor_Temp_Max"] - df["Outdoor_Temp_Min"]
+
+    # lag features (how long did it run the previous hour?)
+    df["runtime_lag1"]  = df["runtime_minutes"].shift(1)
+    df["runtime_lag24"] = df["runtime_minutes"].shift(24)   # same hour yesterday
+
+    # rolling mean (recent trend)
+    df["runtime_roll3"] = df["runtime_minutes"].shift(1).rolling(3).mean()
+
+    df = df.dropna()   # drop rows where lag features are NaN
+    return df
+
 def main(inside_path="../../Sample_Data/Processed/processed_inside.csv", outside_path="outsideweather.csv"):
     df = load_and_merge(inside_path, outside_path)
 
