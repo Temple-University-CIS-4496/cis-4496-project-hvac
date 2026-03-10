@@ -1,6 +1,8 @@
 
 Column Index,Column Name,Type of Variable,"Values (range, levels, examples, etc)",Short Description,Joining Keys with others datasets?
-1,TimeStamp,date,2025-02-05 - 2026-02-27, This is the time the thermostat 
-reports data that gets stored,
-2,,,,,
-3,,,,,
+1,TimeStamp,date,2025-02-05 - 2026-02-27, This is the time the thermostat reports data that gets stored,
+2,Temperature,float,17.8 - 24.2, This is the how hot or cold it is actually in the house,
+3,Set Point,float, 18.3 - 25.6, This is the temperature the occupent sets the thermostat to,
+4,Fan State,boolean, 0 or 1, This reports if the fan is on or off ,
+5,Output State,boolean, 0 or 1, This reports if the output state is on or off, 
+
