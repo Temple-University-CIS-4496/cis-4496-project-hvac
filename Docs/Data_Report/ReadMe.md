@@ -9,8 +9,7 @@ Describe the data pipeline and provide a logical diagram
 
 ## 3. DataSummaryReport.md
 
-This file will be generated for each data file received or processed
    Data files recived:
    1. outdoorweather.csv
    2. Thermostat timeseries
-   3. Thermostat names 
+
