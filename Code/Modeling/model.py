@@ -7,6 +7,8 @@ import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.model_selection import TimeSeriesSplit
+from sklearn.preprocessing import StandardScaler
 
 # data loading
 def load_and_merge(inside_path, outside_path):
@@ -77,6 +79,18 @@ def evaluate(name, y_true, y_pred):
     print(f"  R-squared   : {r2:.3f}")
     print(f"  CV   : {cv:.1f}%      (target < 30% per ASHRAE)")
     return {"model": name, "rmse": rmse, "mae": mae, "r2": r2, "cv_pct": cv}
+
+# linear baseline function
+def run_linear_baseline(X_train, X_test, y_train, y_test):
+    scaler = StandardScaler()
+    X_tr = scaler.fit_transform(X_train)
+    X_te = scaler.transform(X_test)
+
+    model = LinearRegression()
+    model.fit(X_tr, y_train)
+    preds = np.clip(model.predict(X_te), 0, 60)   # runtime can't exceed 60 min/hr
+    return evaluate("Linear Regression (Baseline)", y_test, preds), model
+
 
 def main(inside_path="../../Sample_Data/Processed/processed_inside.csv", outside_path="outsideweather.csv"):
     df = load_and_merge(inside_path, outside_path)
