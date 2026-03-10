@@ -148,11 +148,11 @@ def run(input_dir, outdoor_filename, output_dir):
         
         # extract date components
         #
-        df["Year"] = df["Timestamp"].dt.year
-        df["Month"] = df["Timestamp"].dt.month
-        df["Day"] = df["Timestamp"].dt.day
-        df["Hour"] = df["Timestamp"].dt.hour
-        df["DayOfWeek"] = df["Timestamp"].dt.dayofweek
+        # df["Year"] = df["Timestamp"].dt.year
+        # df["Month"] = df["Timestamp"].dt.month
+        # df["Day"] = df["Timestamp"].dt.day
+        # df["Hour"] = df["Timestamp"].dt.hour
+        # df["DayOfWeek"] = df["Timestamp"].dt.dayofweek
         
         # create dummies from string column and guarantee all 3 modes exist
         #
