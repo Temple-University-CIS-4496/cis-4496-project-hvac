@@ -34,6 +34,34 @@ def load_and_merge(inside_path, outside_path):
     df = df.reset_index()
     return df
 
+# deriving binary 'is_running" from outputstate, then compute runtime minutes per clock-hour (target)
+def compute_runtime_per_hour(df: pd.DataFrame) -> pd.DataFrame:
+    # OutputState == 1  →  unit is actively conditioning (heat OR cool).
+    # OutputState == 0  →  standby / off.
+
+    # binary running signal
+    df["is_running"] = (df["OutputState"] == 1).astype(int)
+
+    # each 15-min row = 15 min of potential runtime
+    df["runtime_minutes"] = df["is_running"] * 15
+
+    # aggregate to hourly runtime
+    df["hour_bucket"] = df["Timestamp"].dt.floor("h")
+    hourly = (
+        df.groupby("hour_bucket")
+          .agg(
+              runtime_minutes   = ("runtime_minutes",    "sum"),
+              Temperature       = ("Temperature",        "mean"),
+              Setpoint          = ("Setpoint",           "mean"),
+              Outdoor_Temp      = ("outside_temp",       "mean"),
+              Outdoor_Temp_Min  = ("outside_temp_min",   "mean"),
+              Outdoor_Temp_Max  = ("outside_temp_max",   "mean"),
+              Outdoor_Humidity  = ("outside_humidity",   "mean"),
+          )
+          .reset_index()
+    )
+    return hourly
+
 # add time-based and physics-inspired features.
 def engineer_features(df):
     df = df.copy()
