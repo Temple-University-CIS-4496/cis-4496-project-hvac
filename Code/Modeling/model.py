@@ -120,7 +120,7 @@ def run_linear_baseline(X_train, X_test, y_train, y_test):
     return evaluate("Linear Regression (Baseline)", y_test, preds), model
 
 
-def main(inside_path="../../Sample_Data/Processed/processed_inside.csv", outside_path="outsideweather.csv"):
+def main(inside_path="../../Sample_Data/Processed/processed_inside.csv", outside_path="../../Sample_Data/Processed/outdoorweather.csv"):
     df = load_and_merge(inside_path, outside_path)
     df = compute_runtime_per_hour(df)
     df = engineer_features(df)
@@ -150,6 +150,6 @@ def main(inside_path="../../Sample_Data/Processed/processed_inside.csv", outside
 
 if __name__ == "__main__":
     import sys
-    inside_path  = sys.argv[1] if len(sys.argv) > 1 else "inside.csv"
-    outside_path = sys.argv[2] if len(sys.argv) > 2 else "outside.csv"
+    inside_path  = sys.argv[1] if len(sys.argv) > 1 else "../../Sample_Data/Processed/processed_inside.csv"
+    outside_path = sys.argv[2] if len(sys.argv) > 2 else "../../Sample_Data/Processed/outdoorweather.csv"
     main(inside_path, outside_path)
