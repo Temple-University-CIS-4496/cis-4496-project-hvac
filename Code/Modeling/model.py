@@ -63,6 +63,21 @@ FEATURE_COLS = [
 ]
 TARGET_COL = "runtime_minutes"
 
+# evaluate
+def evaluate(name, y_true, y_pred):
+    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+    mae  = mean_absolute_error(y_true, y_pred)
+    r2   = r2_score(y_true, y_pred)
+    cv   = (rmse / y_true.mean()) * 100 if y_true.mean() > 0 else float("nan")
+    print(f"\n{'='*50}")
+    print(f"  {name}")
+    print(f"{'='*50}")
+    print(f"  RMSE : {rmse:.2f} min  (target < 5 min/hr)")
+    print(f"  MAE  : {mae:.2f} min")
+    print(f"  R-squared   : {r2:.3f}")
+    print(f"  CV   : {cv:.1f}%      (target < 30% per ASHRAE)")
+    return {"model": name, "rmse": rmse, "mae": mae, "r2": r2, "cv_pct": cv}
+
 def main(inside_path="../../Sample_Data/Processed/processed_inside.csv", outside_path="outsideweather.csv"):
     df = load_and_merge(inside_path, outside_path)
 
