@@ -1,6 +1,6 @@
 
-** Time Series Thermostat Data ** 
+Time Series CSV Files
 Column Index,Column Name,Type of Variable,"Values (range, levels, examples, etc)",Short Description,Joining Keys with others datasets?
-1,,,,,
+1,TimeStamp,date,2025-02-05 - 2026-02-27, This is the time the thermostat reports data that gets stored,
 2,,,,,
 3,,,,,
