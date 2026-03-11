@@ -9,4 +9,4 @@ Describe the data pipeline and provide a logical diagram
 
 ## 3. DataSummaryReport.md
 
-A report detailing infomration about the proccessed thermostat data including outdoor weather information 
+A report detailing information about the proccessed thermostat data including outdoor weather information 
