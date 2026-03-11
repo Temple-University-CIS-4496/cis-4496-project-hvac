@@ -9,6 +9,13 @@ For each dataset, the links to the sample datasets in the _**Data**_ directory a
 
 ## Raw Data Sources
 
+
+| Dataset Name | Original Location   | Destination Location  | Data Movement Tools / Scripts | Link to Report |
+| ---:| ---: | ---: | ---: | -----: |
+|outdoorweather.csv | It origionally was located in the sample_data Raw folder| This file destiation is to be merged with thermostat data | [dataprep.py](.../.../Code/Data_Acquisition_and_Understanding/dataPrep.py) | [Dataset 1 Report](link/to/report1)|
+| Dataset 2 | Brief description of its orignal location | Brief description of its destination location | [script2.R](link/to/R/script/file/in/Code) | [Dataset 2 Report](link/to/report2)|
+
+
 | Raw Dataset Name | Link to the Full Dataset   | Full Dataset Size (MB)  | Link to Report |
 | ---:| ---: | ---: | ---: |
 | outdoorweather.csv | [link](outdoorweather.csv) | 0.903 |[Report Link](https://github.com/Temple-University-CIS-4496/cis-4496-project-hvac/blob/9da935a5ab17d1edf88714bb62209fd4659eabb0/Docs/Data_Report/DataSummaryReport.md)|
