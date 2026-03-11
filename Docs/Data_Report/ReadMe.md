@@ -9,7 +9,4 @@ Describe the data pipeline and provide a logical diagram
 
 ## 3. DataSummaryReport.md
 
-   Data files recived:
-   1. outdoorweather.csv
-   2. Thermostat timeseries
-
+A report detailing information about the proccessed thermostat data including outdoor weather information 

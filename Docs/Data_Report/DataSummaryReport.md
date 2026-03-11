@@ -1,7 +1,5 @@
 # Data Report
-This file will be generated for each data file received or processed. The Interactive Data Exploration, Analysis, and Reporting (IDEAR) utility developed by TDSP team of Microsoft can help you explore and visualize the data in an interactive way, and generate the data report along with the process of exploration and visualization. 
 
-IDEAR allows you to output the data summary, statistics, and charts that you want to use to tell the data story into the report. You only need to click a few buttons, and the report will be generated for you. 
 
 ## General summary of the data
 The data used for this project is time series thermostat data combined with outdoor weather data. What is included in the outdoor weather data is the timestamp when the data was reported, the outside temperature, the outside temperature minimum, the outside temperature maximum, and outside humidity.  This data set was combined with the time series of thermostat data.  
@@ -19,28 +17,28 @@ The target variable is in this analysis is HVAC runtime, which is the total time
 ## Individual variables
 This data set influences several variables that influence the HVAC runtime. All of the variables can be sorted into three categories: weather variables, thermostat variables, and time variables.  
 
-Weather variables: Outdoor temperature, humidity, and other environmental conditions that influence heating or cooling demand. 
+#### Weather variables: Outdoor temperature, humidity, and other environmental conditions that influence heating or cooling demand. 
 
-Thermostat variables: Indoor temperature setpoints, occupancy state, and system mode  
+#### Thermostat variables: Indoor temperature setpoints, occupancy state, and system mode  
 
-Time variables: Timestamp: such as hour of day, day of week or season 
+#### Time variables: Timestamp: such as hour of day, day of week or season 
 
 ## Variable ranking
 The variables that most importnat for predicted run time are ranked as followed: 
 
-Outdoor temperature 
+#### Outdoor temperature 
 
 This is the most important for predicting runtime as the temperature outside plays a big factor on how hard a HVAC must work and what temperature the occupant wants to set their set point to  
 
-Cooling or heating set point  
+#### Cooling or heating set point  
 
 This is the temperature the occupant sets their thermostat to. Meaning that the HVAC will run in order to maintain this set point  
 
-Time of day  
+#### Time of day  
 
 HVAC usage changes at differnt times during the day. For example, during cooling seasons the HVAC tends to run more frequently during warmer daytime hours, while heating demand can increase during colder early morning periods during the heating season. 
 
-Occupancy state 
+#### Occupancy state 
 
 This reports if there is an occupant in the house. When the home is occupied, the occupants are more likely to adjust the thermostat settings for comfort, which will change the HVAC runtime.  
 ## Relationship between explanatory variables and target variable
