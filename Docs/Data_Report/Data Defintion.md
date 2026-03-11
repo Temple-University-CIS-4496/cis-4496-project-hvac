@@ -12,20 +12,19 @@ For each dataset, the links to the sample datasets in the _**Data**_ directory a
 
 | Dataset Name | Original Location   | Destination Location  | Data Movement Tools / Scripts | Link to Report |
 | ---:| ---: | ---: | ---: | -----: |
-|outdoorweather.csv | It origionally was located in the sample_data Raw folder| This file destiation is to be merged with thermostat data | [dataprep.py](.../.../Code/Data_Acquisition_and_Understanding/dataPrep.py) | [Dataset 1 Report](link/to/report1)|
-| Dataset 2 | Brief description of its orignal location | Brief description of its destination location | [script2.R](link/to/R/script/file/in/Code) | [Dataset 2 Report](link/to/report2)|
+|outdoorweather.csv | It origionally was located in the sample_data Raw folder| This file destiation is to be merged with thermostat data | [dataprep.py](https://github.com/Temple-University-CIS-4496/cis-4496-project-hvac/blob/dcc70df7f673b51baf4399a7f7bd404f9b1b3929/Code/Data_Acquisition_and_Understanding/dataPrep.py) | [Report Link](https://github.com/Temple-University-CIS-4496/cis-4496-project-hvac/blob/9da935a5ab17d1edf88714bb62209fd4659eabb0/Docs/Data_Report/DataSummaryReport.md)|
+| Thermostat Time series | These files were stored separtley and accesed manually through downloading each indivuiualy from a dashboard| Then it was moved to a kaggle data set| Dowloaded/Moved Manually | [Report Link](https://github.com/Temple-University-CIS-4496/cis-4496-project-hvac/blob/9da935a5ab17d1edf88714bb62209fd4659eabb0/Docs/Data_Report/DataSummaryReport.md)|
 
 
-| Raw Dataset Name | Link to the Full Dataset   | Full Dataset Size (MB)  | Link to Report |
-| ---:| ---: | ---: | ---: |
-| outdoorweather.csv | [link](outdoorweather.csv) | 0.903 |[Report Link](https://github.com/Temple-University-CIS-4496/cis-4496-project-hvac/blob/9da935a5ab17d1edf88714bb62209fd4659eabb0/Docs/Data_Report/DataSummaryReport.md)|
-| timeseries_table_timeseries_table.csv(1)-(100) | https://www.kaggle.com/datasets/lsobieski/raw-thermostat-data | Each ~5 MB | [Report Link](https://github.com/Temple-University-CIS-4496/cis-4496-project-hvac/blob/9da935a5ab17d1edf88714bb62209fd4659eabb0/Docs/Data_Report/DataSummaryReport.md)|
 
 #### Raw Data summary Set1 : This data set is the raw outdoor weather data with data reproting frequency of about every 15 mintutes. The dataset includes the measurments of the environment outside such as outdoor temperature, minimum and maximum temperature, humidity, and timestamps indicating when each observation was recorded. During preprocessig this dataset is merged with the thermostat dataset. 
 #### Raw Data summary Set2 : The raw thermostat files include variables such as timestamp, indoor temperature, setpoint, system mode, occupancy state, fan state, and running mode. However, these raw files do not initially contain calculated fields such as cumulative HVAC runtime or cumulative operating cost. These data sets also include a large number of null values wich is adressed during the preprocessing stage. 
 
 
-## Processed Data Sources
+# Processed Data
+| Processed Dataset Name | Input Dataset(s)   | Data Processing Tools/Scripts | Link to Report |
+| ---:| ---: | ---: | ---: | 
+| Processed Dataset | [Input Datasets link]([link/to/dataset1/report](https://github.com/Temple-University-CIS-4496/cis-4496-project-hvac/blob/99206e5f6c2d170d4a2a7f4bda8a4006f2257dc7/Sample_Data/Raw/rawData.md)) | [Python_Script1.py](link/to/python/script/file/in/Code) | [Report Link](https://github.com/Temple-University-CIS-4496/cis-4496-project-hvac/blob/9da935a5ab17d1edf88714bb62209fd4659eabb0/Docs/Data_Report/DataSummaryReport.md)|
 
 | Processed Dataset Name | Link to the Full Processed Dataset   | Full Processed Dataset Size (MB)  | Link to Report |
 | ---:| ---: | ---: | ---: |
