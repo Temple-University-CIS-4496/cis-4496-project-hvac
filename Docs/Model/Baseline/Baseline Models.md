@@ -27,10 +27,7 @@ Hyperparameters: None
 
 ## Model Understanding
 
-* Variable Importance (significance)
-
-* Insight Derived from the Model
-
+From individual model performance on the csv processed_timeseries_data (10), we can tell that the outdoor temperature is the most important variable to how much the HVAC runs, having a high positive correllation. We also see a positive correllation for the humidity and indoor temperature, albeit a smaller correlation. The setpoint has a negative correllation, which makes sense because the majority of this file's data is in the summer. In order to perform a better analysis of coefficient trends across all the files, a feature to differentiate indoor and outdoor temperature should be created to keep the temperature from being affected by seasonality and heating/cooling changes.
 
 ## Conclusion and Discussions for Next Steps
 
