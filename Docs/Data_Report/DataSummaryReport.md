@@ -17,9 +17,9 @@ The target variable is in this analysis is HVAC runtime, which is the total time
 ## Individual variables
 This data set influences several variables that influence the HVAC runtime. All of the variables can be sorted into three categories: weather variables, thermostat variables, and time variables.  
 
-### Weather variables: Outdoor temperature, humidity, and other environmental conditions that influence heating or cooling demand. 
+Weather variables: Outdoor temperature, humidity, and other environmental conditions that influence heating or cooling demand. 
 
-### Thermostat variables: Indoor temperature setpoints, occupancy state, and system mode  
+###### Thermostat variables: Indoor temperature setpoints, occupancy state, and system mode  
 
 ### Time variables: Timestamp: such as hour of day, day of week or season 
 
