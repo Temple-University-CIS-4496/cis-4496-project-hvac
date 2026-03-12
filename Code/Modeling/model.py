@@ -1,6 +1,7 @@
 # rolling window linear regression
 # 2 week long window
 # linear regression
+# gradient over time
 
 # gradient boosted tree
 # xgboost

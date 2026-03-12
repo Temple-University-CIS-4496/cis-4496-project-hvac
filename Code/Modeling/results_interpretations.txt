@@ -1,0 +1,27 @@
+results 1:
+
+Dataset shape: (1991, 16) | Runtime Range: 0–960 min/hr
+
+Train: 1592 rows | Test: 399 rows
+
+==================================================
+  Linear Regression (Baseline)
+==================================================
+  RMSE : 261.66 min  (target < 5 min/hr)
+  MAE  : 226.72 min
+  R-squared   : -1.796
+  CV   : 97.0%      (target < 30% per ASHRAE)
+
+
+model comparison summary
+
+                                   rmse         mae        r2     cv_pct
+model                                                                   
+Linear Regression (Baseline)  261.66067  226.719594 -1.795941  96.978875
+
+summary:
+results show that the single-fit linear regression completely fails. The RMSE returns 261.66 minutes 
+when the target is <5 mins.
+It also shows that R-squared is -1.796 which means it is worse than just predicting the mean every time
+Runtime range is also 0-960 min/hr which is physically impossible. 
+Upon further reading of the data, it seems that a lot of the data was duplicated
