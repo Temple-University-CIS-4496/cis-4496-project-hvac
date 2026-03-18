@@ -128,23 +128,6 @@ def run(input_dir, outdoor_filename, output_dir):
 
         df = df.sort_values("Timestamp").reset_index(drop=True)
         df["timestamp_diff"] = df["Timestamp"].diff()
-
-
-        # check for intervals where fan was active (fill NaNs with 0 to prevent empty columns)
-        #
-        runtime_sec = df["timestamp_diff"].dt.total_seconds().fillna(0)
-
-        df["runtime_change"] = runtime_sec.where(
-            df["FanState"].shift(1) == 1, 0.0
-        )
-        
-        df["CumulativeRuntime"] = df["runtime_change"].cumsum()
-
-        # cost: (hours * rate) * user multiplier of 3
-        #
-        df["CumulativeCost"] = (
-            df["CumulativeRuntime"] / 3600.0 * 0.17 * 3.0
-        )
         
         # extract date components
         #
@@ -161,6 +144,22 @@ def run(input_dir, outdoor_filename, output_dir):
         for col in ["RunningMode_off", "RunningMode_heat", "RunningMode_cool"]:
             if col not in df.columns:
                 df[col] = 0
+        
+        # check for intervals where fan was active (fill NaNs with 0 to prevent empty columns)
+        #
+        runtime_sec = df["timestamp_diff"].dt.total_seconds().fillna(0)
+
+        df["runtime_change"] = runtime_sec.where(
+            df["RunningMode_off"].shift(1) == 0,0
+        )
+        
+        df["CumulativeRuntime"] = df["runtime_change"].cumsum()
+
+        # cost: (hours * rate) * user multiplier of 3
+        #
+        df["CumulativeCost"] = (
+            df["CumulativeRuntime"] / 3600.0 * 0.17 * 3.0
+        )
                 
         # isolate indoor timestamps for final alignment
         #
