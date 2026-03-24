@@ -10,19 +10,32 @@ The baseline model for this project is a rolling window linear regression. While
 
 The model chosen was a rolling window linear regression using scikit-learn's LinearRegression model. 
 
-Parameters for X: 1 day lagged average setpoint, indoor temperature, outdoor temperature, humidity, all measured at midnight to avoid leakage.
+Features Utilized for X: 
+- 1 day lagged average setpoint
+- First indoor temperature reading of the day
+- First outdoor temperature reading of the day
+- First outdoor humidity reading of the day
 
 Parameters for Y: The differential in cumulative runtime for each day
 
-Window Size Parameters: 21 days
+Window Size Parameters: 1 (naive case), 7, 14, 21, 28, and 35 days
 
 Hyperparameters: None 
 
+## Methodology
+While building the model, the window sizes listed above were tested, as well as others. The other window sizes included 3, 11, and 17 days, which represent midpoints in the above windows. They exhibited consistent linear trends with the non-naive windows. 
+
+In order to represent the available features from the dataset, minimal feature engineering was done. The engineered features were chosen to prevent data leakage and represent the irregular timeseries data in a regular fashion. In order to obtain accurate Y values, the runtime is derived from the running_mode feature in the raw data. The difference in run time at the first and last observation is computed, as well as whether the thermostat was running from the final observation until midnight.
+
+# **Work in Progress**
+
 ## Results (Model Performance)
-* Across 94 households, this model achieves an average R^2 of .36 and a median R^2 of about .5. In addition, the mean absolute error is about 2.3 hours and the median absolute error is about 1.5 hours.
+* The naive model performs the best, with an R^2 of .59, and a 
+* The model stabilizes around a window of 21, with the R^2 for window sizes 21 - 35 ranging between .37 and .38.
 * 6 households were dropped due to outlier R^2 values at the magnitude of -10^25. Further investigation revealed that the data for these households was missing significant chunks of runtime, where the HVAC unit claimed to not be turned on. 
 * Graph of R^2 values of 94 houses
-<img width="1171" height="830" alt="image" src="https://github.com/user-attachments/assets/a8618a98-b843-4771-b6ba-b04e7e6c7dfb" />
+<img width="985" height="728" alt="image" src="https://github.com/user-attachments/assets/dfcffbe5-7e87-4ea5-9d10-6950093df7e9" />
+
 
 
 ## Model Understanding
