@@ -11,6 +11,14 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import warnings
 warnings.filterwarnings("ignore")
 
+THERMOSTAT_FILES = [
+    "../../Sample_Data/Processed/processed_inside.csv",
+    "../../Sample_Data/Processed/processed_inside_41.csv",
+    "../../Sample_Data/Processed/processed_inside_42.csv",
+    "../../Sample_Data/Processed/processed_inside_43.csv",
+    "../../Sample_Data/Processed/processed_inside_44.csv",
+    "../../Sample_Data/Processed/processed_inside_45.csv"
+]
 
 # data loading 
 
@@ -123,7 +131,7 @@ def evaluate(y_true, y_pred):
 
 # xgboost model
 
-def run_xgboost(X_train, X_test, y_train, y_test):
+def run_xgboost(X_train, X_test, y_train, y_test, feature_cols=FEATURE_COLS):
     model = xgb.XGBRegressor(
         n_estimators     = 300,
         learning_rate    = 0.05,
@@ -135,17 +143,12 @@ def run_xgboost(X_train, X_test, y_train, y_test):
         verbosity        = 0,
     )
 
-    model.fit(
-        X_train, y_train,
-        eval_set = [(X_test, y_test)],
-        verbose  = False,
-    )
+    model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=False)
 
     preds = np.clip(model.predict(X_test), 0, 60)
     metrics = evaluate(y_test, preds)
 
-    # top features
-    importance = pd.Series(model.feature_importances_, index=FEATURE_COLS)
+    importance = pd.Series(model.feature_importances_, index=feature_cols).sort_values(ascending=False)
     print("\n  top 5 features:")
     print(importance.nlargest(5).to_string())
 
@@ -154,7 +157,7 @@ def run_xgboost(X_train, X_test, y_train, y_test):
 
 # plots
 
-def plot_results(test_df, y_test, preds, model, metrics):
+def plot_results(test_df, y_test, preds, model, metrics, feature_cols=FEATURE_COLS):
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
     fig.suptitle("xgboost — hvac runtime prediction", fontsize=14, fontweight="bold", y=1.01)
 
@@ -176,7 +179,7 @@ def plot_results(test_df, y_test, preds, model, metrics):
     lims = [0, 60]
     ax.plot(lims, lims, "r--", linewidth=1, label="perfect prediction")
     ax.set_xlim(lims); ax.set_ylim(lims)
-    ax.set_title(f"actual vs predicted scatter  (r² = {metrics['r2']:.3f})")
+    ax.set_title(f"actual vs predicted scatter  (r2 = {metrics['r2']:.3f})")
     ax.set_xlabel("actual runtime (min/hr)")
     ax.set_ylabel("predicted runtime (min/hr)")
     ax.legend()
@@ -195,7 +198,7 @@ def plot_results(test_df, y_test, preds, model, metrics):
 
     # plot feature importance 
     ax = axes[1, 1]
-    importance = pd.Series(model.feature_importances_, index=FEATURE_COLS).sort_values()
+    importance = pd.Series(model.feature_importances_, index=feature_cols).sort_values()
     importance.plot(kind="barh", ax=ax, color="steelblue", edgecolor="white")
     ax.set_title("feature importance")
     ax.set_xlabel("importance score")
@@ -203,42 +206,58 @@ def plot_results(test_df, y_test, preds, model, metrics):
 
     plt.tight_layout()
     plt.savefig("xgboost_results.png", dpi=150, bbox_inches="tight")
-    print("\n  plot saved → xgboost_results.png")
+    print("\n  plot saved - xgboost_results.png")
     plt.show()
 
+def load_all_thermostats(file_paths):
+    all_dfs = []
 
-# ── main ──────────────────────────────────────────────────────────────────────
+    for i, path in enumerate(file_paths):
+        print(f"  loading thermostat {i+1}: {path}")
+        try:
+            df = load_data(path)
+            df = compute_runtime_per_hour(df)
+            df = engineer_features(df)
 
-def main(inside_path="../../Sample_Data/Processed/processed_inside.csv"):
-    print("loading data...")
-    df = load_data(inside_path)
+            # tag each row with which unit it came from
+            df["thermostat_id"] = i + 1
 
-    print("computing hourly runtime...")
-    df = compute_runtime_per_hour(df)
+            all_dfs.append(df)
+            print(f"    - {len(df)} hourly rows after processing")
 
-    print("engineering features...")
-    df = engineer_features(df)
+        except Exception as e:
+            print(f"    - skipping, error: {e}")
+
+    combined = pd.concat(all_dfs, ignore_index=True)
+
+    # sort by time across all units
+    combined = combined.sort_values("hour_bucket").reset_index(drop=True)
+    print(f"\n  total rows across all thermostats: {len(combined)}")
+    return combined
+
+# main
+def main(file_paths=THERMOSTAT_FILES):
+    print("loading all thermostats...")
+    df = load_all_thermostats(file_paths)
 
     print(f"dataset shape: {df.shape} | runtime range: {df[TARGET_COL].min():.0f}–{df[TARGET_COL].max():.0f} min/hr")
 
-    # chronological 80/20 split — no shuffling, respects time order
+    # add thermostat_id as a feature so model knows which unit it's predicting
+    feature_cols = FEATURE_COLS + ["thermostat_id"]
+
+    # chronological 80/20 split
     split = int(len(df) * 0.8)
     train = df.iloc[:split]
     test  = df.iloc[split:]
 
-    X_train, y_train = train[FEATURE_COLS], train[TARGET_COL]
-    X_test,  y_test  = test[FEATURE_COLS],  test[TARGET_COL]
+    X_train, y_train = train[feature_cols], train[TARGET_COL]
+    X_test,  y_test  = test[feature_cols],  test[TARGET_COL]
 
     print(f"train: {len(train)} rows | test: {len(test)} rows")
 
-    # run xgboost
-    model, preds, metrics = run_xgboost(X_train, X_test, y_train, y_test)
-
-    # generate plots
-    plot_results(test, y_test, preds, model, metrics)
+    model, preds, metrics = run_xgboost(X_train, X_test, y_train, y_test, feature_cols)
+    plot_results(test, y_test, preds, model, metrics, feature_cols)
 
 
 if __name__ == "__main__":
-    import sys
-    inside_path = sys.argv[1] if len(sys.argv) > 1 else "../../Sample_Data/Processed/processed_inside.csv"
-    main(inside_path)
+    main(THERMOSTAT_FILES)
