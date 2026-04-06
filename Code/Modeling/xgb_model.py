@@ -9,97 +9,76 @@ import matplotlib.dates as mdates
 import xgboost as xgb
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import warnings
+import kagglehub
+import os
 warnings.filterwarnings("ignore")
 
-THERMOSTAT_FILES = [
-    "../../Sample_Data/Processed/processed_inside.csv",
-    "../../Sample_Data/Processed/processed_inside_41.csv",
-    "../../Sample_Data/Processed/processed_inside_42.csv",
-    "../../Sample_Data/Processed/processed_inside_43.csv",
-    "../../Sample_Data/Processed/processed_inside_44.csv",
-    "../../Sample_Data/Processed/processed_inside_45.csv"
-]
+KAGGLE_TOKEN = "type your api key for kaggle here"
 
-# data loading 
-
+# data loading
 def load_data(inside_path):
     df = pd.read_csv(inside_path, parse_dates=["Timestamp"])
     df = df.sort_values("Timestamp")
-
-    # drop exact duplicate rows first (same timestamp + same values)
     df = df.drop_duplicates()
 
-    # then deduplicate on state change — only keep a row when something actually changed
-    # this is what the thermostat is actually recording: state transitions
-    state_cols = ["OutputState", "RunningMode", "FanState", "Setpoint"]
-    df = df[df[state_cols].ne(df[state_cols].shift()).any(axis=1)]
+    if "RunningMode" not in df.columns:
+        if "RunningMode_cool" in df.columns:
+            df["RunningMode"] = np.select(
+                [df["RunningMode_cool"] == 1, df["RunningMode_heat"] == 1],
+                ["cool", "heat"],
+                default="off"
+            )
+        else:
+            df["RunningMode"] = "unknown"
 
+    state_cols = ["OutputState", "RunningMode", "FanState", "Setpoint"]
+    state_cols = [c for c in state_cols if c in df.columns]
+    df = df[df[state_cols].ne(df[state_cols].shift()).any(axis=1)]
     df = df.reset_index(drop=True)
     return df
 
 
 # runtime aggregation
-
 def compute_runtime_per_hour(df):
     df = df.copy()
-
-    # duration of each state = time until next state change
     df["duration_minutes"] = (
         df["Timestamp"].shift(-1) - df["Timestamp"]
     ).dt.total_seconds() / 60
-
-    # cap each segment at 60 min (sanity check for gaps in data)
     df["duration_minutes"] = df["duration_minutes"].clip(0, 60)
+    df["runtime_minutes"]  = df["duration_minutes"] * (df["OutputState"] == 1).astype(int)
+    df["hour_bucket"]      = df["Timestamp"].dt.floor("h")
 
-    # only count duration when unit is actively running
-    df["runtime_minutes"] = df["duration_minutes"] * (df["OutputState"] == 1).astype(int)
-
-    df["hour_bucket"] = df["Timestamp"].dt.floor("h")
     hourly = (
         df.groupby("hour_bucket")
           .agg(
-              runtime_minutes  = ("runtime_minutes",    "sum"),
-              Temperature      = ("Temperature",        "mean"),
-              Setpoint         = ("Setpoint",           "mean"),
-              Outdoor_Temp     = ("Outdoor_Temperature","mean"),
-              Outdoor_Temp_Min = ("outsideMinTemp",     "mean"),
-              Outdoor_Temp_Max = ("outsideMaxTemp",     "mean"),
-              Outdoor_Humidity = ("outsideHumidity",    "mean"),
+              runtime_minutes  = ("runtime_minutes",     "sum"),
+              Temperature      = ("Temperature",         "mean"),
+              Setpoint         = ("Setpoint",            "mean"),
+              Outdoor_Temp     = ("Outdoor_Temperature", "mean"),
+              Outdoor_Temp_Min = ("outsideMinTemp",      "mean"),
+              Outdoor_Temp_Max = ("outsideMaxTemp",      "mean"),
+              Outdoor_Humidity = ("outsideHumidity",     "mean"),
           )
           .reset_index()
     )
-
-    # still cap at 60 just in case
     hourly["runtime_minutes"] = hourly["runtime_minutes"].clip(0, 60)
     return hourly
 
 
 # feature engineering
-
 def engineer_features(df):
     df = df.copy()
-
-    # time features
-    df["hour_of_day"] = df["hour_bucket"].dt.hour
-    df["day_of_week"] = df["hour_bucket"].dt.dayofweek
-    df["month"]       = df["hour_bucket"].dt.month
-
-    # physics-based: how hard does the hvac have to work?
-    df["temp_delta"]  = df["Setpoint"] - df["Outdoor_Temp"]
-    df["temp_range"]  = df["Outdoor_Temp_Max"] - df["Outdoor_Temp_Min"]
-
-    # lag features — runtime from previous hours
-    df["runtime_lag1"]  = df["runtime_minutes"].shift(1)   # 1 hour ago
-    df["runtime_lag24"] = df["runtime_minutes"].shift(24)  # same hour yesterday
-
-    # rolling average over last 3 hours (recent trend)
+    df["hour_of_day"]   = df["hour_bucket"].dt.hour
+    df["day_of_week"]   = df["hour_bucket"].dt.dayofweek
+    df["month"]         = df["hour_bucket"].dt.month
+    df["temp_delta"]    = df["Setpoint"] - df["Outdoor_Temp"]
+    df["temp_range"]    = df["Outdoor_Temp_Max"] - df["Outdoor_Temp_Min"]
+    df["runtime_lag1"]  = df["runtime_minutes"].shift(1)
+    df["runtime_lag24"] = df["runtime_minutes"].shift(24)
     df["runtime_roll3"] = df["runtime_minutes"].shift(1).rolling(3).mean()
-
     df = df.dropna()
     return df
 
-
-# config
 
 FEATURE_COLS = [
     "Temperature", "Setpoint", "Outdoor_Temp",
@@ -112,7 +91,6 @@ TARGET_COL = "runtime_minutes"
 
 
 # evaluation
-
 def evaluate(y_true, y_pred):
     rmse = np.sqrt(mean_squared_error(y_true, y_pred))
     mae  = mean_absolute_error(y_true, y_pred)
@@ -130,22 +108,22 @@ def evaluate(y_true, y_pred):
 
 
 # xgboost model
-
-def run_xgboost(X_train, X_test, y_train, y_test, feature_cols=FEATURE_COLS):
+def run_xgboost(X_train, X_test, y_train, y_test, feature_cols):
     model = xgb.XGBRegressor(
-        n_estimators     = 300,
-        learning_rate    = 0.05,
-        max_depth        = 6,
+        n_estimators     = 1000,
+        learning_rate    = 0.02,
+        max_depth        = 8,
         subsample        = 0.8,
         colsample_bytree = 0.8,
+        min_child_weight = 10,
+        gamma            = 1,
         objective        = "reg:squarederror",
         random_state     = 42,
         verbosity        = 0,
+        early_stopping_rounds = 20,
     )
-
     model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=False)
-
-    preds = np.clip(model.predict(X_test), 0, 60)
+    preds   = np.clip(model.predict(X_test), 0, 60)
     metrics = evaluate(y_test, preds)
 
     importance = pd.Series(model.feature_importances_, index=feature_cols).sort_values(ascending=False)
@@ -156,108 +134,257 @@ def run_xgboost(X_train, X_test, y_train, y_test, feature_cols=FEATURE_COLS):
 
 
 # plots
-
-def plot_results(test_df, y_test, preds, model, metrics, feature_cols=FEATURE_COLS):
+def plot_results(test_df, y_test, preds, model, metrics, feature_cols):
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
     fig.suptitle("xgboost — hvac runtime prediction", fontsize=14, fontweight="bold", y=1.01)
 
-    # plot actual vs predicted over time
     ax = axes[0, 0]
-    ax.plot(test_df["hour_bucket"].values, y_test.values, label="actual", alpha=0.7, linewidth=1.2)
+    ax.plot(test_df["hour_bucket"].values, y_test.values, label="actual",    alpha=0.7, linewidth=1.2)
     ax.plot(test_df["hour_bucket"].values, preds,         label="predicted", alpha=0.7, linewidth=1.2, linestyle="--")
     ax.set_title("actual vs predicted runtime (test set)")
-    ax.set_xlabel("date")
-    ax.set_ylabel("runtime (min/hr)")
-    ax.legend()
+    ax.set_xlabel("date"); ax.set_ylabel("runtime (min/hr)"); ax.legend()
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %d"))
     ax.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))
     plt.setp(ax.xaxis.get_majorticklabels(), rotation=30, ha="right")
 
-    # plot scatter actual vs predicted
     ax = axes[0, 1]
     ax.scatter(y_test, preds, alpha=0.4, s=15, color="steelblue")
     lims = [0, 60]
     ax.plot(lims, lims, "r--", linewidth=1, label="perfect prediction")
     ax.set_xlim(lims); ax.set_ylim(lims)
     ax.set_title(f"actual vs predicted scatter  (r2 = {metrics['r2']:.3f})")
-    ax.set_xlabel("actual runtime (min/hr)")
-    ax.set_ylabel("predicted runtime (min/hr)")
-    ax.legend()
+    ax.set_xlabel("actual runtime (min/hr)"); ax.set_ylabel("predicted runtime (min/hr)"); ax.legend()
 
-    # plot residuals over time
     ax = axes[1, 0]
     residuals = np.array(y_test) - preds
     ax.plot(test_df["hour_bucket"].values, residuals, alpha=0.6, linewidth=0.8, color="coral")
     ax.axhline(0, color="black", linewidth=1, linestyle="--")
     ax.set_title(f"residuals over time  (rmse = {metrics['rmse']:.2f} min)")
-    ax.set_xlabel("date")
-    ax.set_ylabel("actual − predicted (min)")
+    ax.set_xlabel("date"); ax.set_ylabel("actual − predicted (min)")
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %d"))
     ax.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))
     plt.setp(ax.xaxis.get_majorticklabels(), rotation=30, ha="right")
 
-    # plot feature importance 
     ax = axes[1, 1]
     importance = pd.Series(model.feature_importances_, index=feature_cols).sort_values()
     importance.plot(kind="barh", ax=ax, color="steelblue", edgecolor="white")
-    ax.set_title("feature importance")
-    ax.set_xlabel("importance score")
+    ax.set_title("feature importance"); ax.set_xlabel("importance score")
     ax.axvline(0, color="black", linewidth=0.8)
 
     plt.tight_layout()
     plt.savefig("xgboost_results.png", dpi=150, bbox_inches="tight")
-    print("\n  plot saved - xgboost_results.png")
     plt.show()
 
+
+# per-thermostat breakdown
+def run_per_thermostat(train, test, feature_cols):
+    print("\n  per-thermostat results:")
+    print(f"  {'id':>4}  {'r2':>6}  {'rmse':>6}  {'mae':>6}  {'train_rows':>10}  {'test_rows':>9}")
+    print("  " + "-"*50)
+
+    for tid in sorted(train["thermostat_id"].unique()):
+        tr = train[train["thermostat_id"] == tid]
+        te = test[test["thermostat_id"] == tid]
+        if len(te) < 10:
+            print(f"  {tid:>4}  skipped (too few test rows)")
+            continue
+
+        model = xgb.XGBRegressor(
+            n_estimators=300, learning_rate=0.05, max_depth=6,
+            subsample=0.8, colsample_bytree=0.8,
+            objective="reg:squarederror", random_state=42, verbosity=0
+        )
+        model.fit(tr[feature_cols], tr[TARGET_COL])
+        preds = np.clip(model.predict(te[feature_cols]), 0, 60)
+
+        r2   = r2_score(te[TARGET_COL], preds)
+        rmse = np.sqrt(mean_squared_error(te[TARGET_COL], preds))
+        mae  = mean_absolute_error(te[TARGET_COL], preds)
+        print(f"  {tid:>4}  {r2:>6.3f}  {rmse:>6.2f}  {mae:>6.2f}  {len(tr):>10}  {len(te):>9}")
+
+
+# per-month breakdown
+def run_per_month(test):
+    print("\n  per-month results (pooled model, test set):")
+    print(f"  {'month':>10}  {'r2':>6}  {'rmse':>6}  {'mae':>6}  {'test_rows':>9}")
+    print("  " + "-"*50)
+
+    test = test.copy()
+    test["month_label"] = test["hour_bucket"].dt.to_period("M").astype(str)
+
+    for month in sorted(test["month_label"].unique()):
+        subset = test[test["month_label"] == month]
+        if len(subset) < 10:
+            continue
+        y_true = subset[TARGET_COL]
+        y_pred = subset["predicted"]
+        r2   = r2_score(y_true, y_pred)
+        rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+        mae  = mean_absolute_error(y_true, y_pred)
+        print(f"  {month:>10}  {r2:>6.3f}  {rmse:>6.2f}  {mae:>6.2f}  {len(subset):>9}")
+
+
+# per-thermostat per-month breakdown 
+def run_per_thermostat_per_month(test):
+    print("\n  per-thermostat per-month results (pooled model, test set):")
+    print(f"  {'id':>4}  {'month':>10}  {'r2':>6}  {'rmse':>6}  {'mae':>6}  {'rows':>6}")
+    print("  " + "-"*55)
+
+    test = test.copy()
+    test["month_label"] = test["hour_bucket"].dt.to_period("M").astype(str)
+
+    for tid in sorted(test["thermostat_id"].unique()):
+        for month in sorted(test["month_label"].unique()):
+            subset = test[(test["thermostat_id"] == tid) & (test["month_label"] == month)]
+            if len(subset) < 10:
+                continue
+            y_true = subset[TARGET_COL]
+            y_pred = subset["predicted"]
+            r2   = r2_score(y_true, y_pred)
+            rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+            mae  = mean_absolute_error(y_true, y_pred)
+            print(f"  {tid:>4}  {month:>10}  {r2:>6.3f}  {rmse:>6.2f}  {mae:>6.2f}  {len(subset):>6}")
+        print()
+
+
+# data loading helpers 
 def load_all_thermostats(file_paths):
     all_dfs = []
-
     for i, path in enumerate(file_paths):
         print(f"  loading thermostat {i+1}: {path}")
         try:
             df = load_data(path)
             df = compute_runtime_per_hour(df)
             df = engineer_features(df)
-
-            # tag each row with which unit it came from
             df["thermostat_id"] = i + 1
-
             all_dfs.append(df)
-            print(f"    - {len(df)} hourly rows after processing")
-
+            print(f"    → {len(df)} rows")
         except Exception as e:
-            print(f"    - skipping, error: {e}")
+            print(f"    → skipping, error: {e}")
+    return all_dfs
 
-    combined = pd.concat(all_dfs, ignore_index=True)
 
-    # sort by time across all units
-    combined = combined.sort_values("hour_bucket").reset_index(drop=True)
-    print(f"\n  total rows across all thermostats: {len(combined)}")
-    return combined
+def load_kaggle_thermostats(min_months=6):
+    print("\ndownloading dataset from kaggle...")
+    os.environ["KAGGLE_API_TOKEN"] = KAGGLE_TOKEN
+    path = kagglehub.dataset_download("lsobieski/processed-thermostat-data")
+    print(f"  dataset cached at: {path}")
+
+    viable = []
+    for filename in sorted(os.listdir(path)):
+        if not filename.endswith(".csv"):
+            continue
+        filepath = os.path.join(path, filename)
+        try:
+            df = pd.read_csv(filepath, parse_dates=["Timestamp"])
+            date_range = (df["Timestamp"].max() - df["Timestamp"].min()).days / 30
+            if date_range >= min_months:
+                viable.append((filename, df))
+            else:
+                print(f"  skipping {filename} — only {date_range:.1f} months")
+        except Exception as e:
+            print(f"  could not parse {filename}: {e}")
+
+    print(f"  {len(viable)} files pass {min_months}+ month filter")
+    return viable
+
+def add_thermostat_stats(train, test):
+    stats = (
+        train.groupby("thermostat_id")["runtime_minutes"]
+        .agg(thermo_mean="mean", thermo_std="std", thermo_p25=lambda x: x.quantile(0.25))
+        .reset_index()
+    )
+    train = train.merge(stats, on="thermostat_id", how="left")
+    test  = test.merge(stats,  on="thermostat_id", how="left")
+    return train, test
+    
+def plot_r2_histogram(train, test, feature_cols):
+    # collect per-thermostat R^2 from the pooled model predictions
+    r2_values = []
+    test = test.copy()
+    test["month_label"] = test["hour_bucket"].dt.to_period("M").astype(str)
+
+    for tid in sorted(test["thermostat_id"].unique()):
+        te = test[test["thermostat_id"] == tid]
+        if len(te) < 10:
+            continue
+        r2 = r2_score(te[TARGET_COL], te["predicted"])
+        r2_values.append(r2)
+
+    r2_values = np.array(r2_values)
+    mean_r2   = np.mean(r2_values)
+    median_r2 = np.median(r2_values)
+    pct_pos   = (r2_values >= 0.3).sum()
+    pct_neg   = (r2_values < 0).sum()
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    colors = ["#D85A30" if v < 0 else "#378ADD" for v in r2_values]
+    n, bins, patches = ax.hist(r2_values, bins=20, edgecolor="white", linewidth=0.8)
+    for patch, val in zip(patches, bins):
+        patch.set_facecolor("#D85A30" if val < 0 else "#378ADD")
+
+    ax.axvline(mean_r2,   color="black",  linewidth=1.5, linestyle="--", label=f"mean   = {mean_r2:.3f}")
+    ax.axvline(median_r2, color="gray",   linewidth=1.5, linestyle=":",  label=f"median = {median_r2:.3f}")
+    ax.axvline(0,         color="red",    linewidth=1.0, linestyle="-",  alpha=0.4)
+
+    ax.set_xlabel("R² score (per thermostat)")
+    ax.set_ylabel("count")
+    ax.set_title("distribution of R^2 across all thermostats (pooled model)")
+    ax.legend()
+
+    textstr = f"n = {len(r2_values)}  |  R^2 ≥ 0.3: {pct_pos}  |  R^2 < 0: {pct_neg}"
+    ax.text(0.98, 0.97, textstr, transform=ax.transAxes,
+            fontsize=10, va="top", ha="right", color="gray")
+
+    plt.tight_layout()
+    plt.savefig("r2_histogram.png", dpi=150, bbox_inches="tight")
+    plt.show()
 
 # main
-def main(file_paths=THERMOSTAT_FILES):
-    print("loading all thermostats...")
-    df = load_all_thermostats(file_paths)
+def main():
+    # load kaggle thermostats only
+    kaggle_dfs = load_kaggle_thermostats(min_months=6)
 
-    print(f"dataset shape: {df.shape} | runtime range: {df[TARGET_COL].min():.0f}–{df[TARGET_COL].max():.0f} min/hr")
+    all_dfs = []
+    for i, (filename, raw_df) in enumerate(kaggle_dfs):
+        try:
+            tmp = f"/tmp/kaggle_{i}.csv"
+            raw_df.to_csv(tmp, index=False)
+            df = load_data(tmp)
+            df = compute_runtime_per_hour(df)
+            df = engineer_features(df)
+            df["thermostat_id"] = 100 + i
+            all_dfs.append(df)
+        except Exception as e:
+            print(f"  skipping {filename}: {e}")
 
-    # add thermostat_id as a feature so model knows which unit it's predicting
-    feature_cols = FEATURE_COLS + ["thermostat_id"]
+    print(f"  processed {len(all_dfs)} kaggle thermostats")
 
-    # chronological 80/20 split
-    split = int(len(df) * 0.8)
-    train = df.iloc[:split]
-    test  = df.iloc[split:]
+    # combine and split
+    combined = pd.concat(all_dfs, ignore_index=True)
+    cutoff = combined["hour_bucket"].quantile(0.8)
+    print(f"\n  global cutoff: {cutoff}")
 
+    train = combined[combined["hour_bucket"] <= cutoff].copy()
+    test  = combined[combined["hour_bucket"] >  cutoff].copy()
+    print(f"  train: {len(train)} rows | test: {len(test)} rows")
+
+    # train pooled model
+    train, test = add_thermostat_stats(train, test)
+    feature_cols = FEATURE_COLS + ["thermostat_id", "thermo_mean", "thermo_std", "thermo_p25"]
     X_train, y_train = train[feature_cols], train[TARGET_COL]
     X_test,  y_test  = test[feature_cols],  test[TARGET_COL]
 
-    print(f"train: {len(train)} rows | test: {len(test)} rows")
-
     model, preds, metrics = run_xgboost(X_train, X_test, y_train, y_test, feature_cols)
+    test["predicted"] = preds
+
+    # plots and breakdowns
     plot_results(test, y_test, preds, model, metrics, feature_cols)
+    plot_r2_histogram(train, test, feature_cols)
+    run_per_month(test)
+    run_per_thermostat_per_month(test)
+    run_per_thermostat(train, test, feature_cols)
 
 
 if __name__ == "__main__":
-    main(THERMOSTAT_FILES)
+    main()
