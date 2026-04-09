@@ -6,7 +6,7 @@ The data used for this project is time series thermostat data combined with outd
 
 The information provided from the thermostats are; time stamp, temperature inside, set point, mode, occupied state, fan state output state, running mode, and rental status. Currently there are 100 csv files from 100 different thermostats that have been combined with outdoor weather data. 
 
-The time period of this data is from January 27th 2026 to October 1st 2024. The sampling frequency for the outdoor weather data is every 15 minutes. While the sampling frequency of the thermostat data is recorded at irregular intervals, which meanst that there is no fixed sampling frequency for the thermostat measurments.  
+The time period of this data is from October 1st 2024 to January 27th 2026. The sampling frequency for the outdoor weather data is every 15 minutes. While the sampling frequency of the thermostat data is recorded at irregular intervals, which meanst that there is no fixed sampling frequency for the thermostat measurments.  
 
 ## Data quality summary
 Before the processing of the raw data, several data quality issues were identified. There mostly null values in the thermostat time series data, occasional gapsin the timestamps, timestamps from the thermostat files did not match up with the timestamps on the outdoor weather data, and the dataset did not initially include a column for HVAC cumulative runtime or energy cost.  
