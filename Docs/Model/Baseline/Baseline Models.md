@@ -34,7 +34,7 @@ In order to represent the available features from the dataset, minimal feature e
 * The model filters households with an R^2 value below -5. Typically, these dropped households have outlier R^2 values at the magnitude of -10^25. The naive model dropped 0 houses, while the window sizes of 21, 28, and 35 days dropped 6, 4, and 2 houses respectively. Further investigation revealed that the data for these households was missing significant chunks of runtime, where the HVAC unit claimed to not be turned on, or the inverse case where large jumps in runtime were seen due to the HVAC unit being on during the data gaps.
 * The graphs for the R^2 values for larger windows imply a median R^2 higher than the mean, with some left tail lowering the mean. It appears the median R^2 is around .5, which increases the feasibility of this task.
 * Graph of R^2 values of 94 houses for a rolling window size of 21 days
-<img width="985" height="728" alt="image" src="https://github.com/user-attachments/assets/dfcffbe5-7e87-4ea5-9d10-6950093df7e9" />
+<img width="400" height="300" alt="image" src="https://github.com/user-attachments/assets/dfcffbe5-7e87-4ea5-9d10-6950093df7e9" />
 
 
 
