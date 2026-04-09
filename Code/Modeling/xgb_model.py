@@ -2,6 +2,11 @@
 # target: runtime minutes per hour (0-60)
 # features: indoor temp, setpoint, outdoor weather, time, lag features
 
+# introduct temperature gradient to compare
+# compare beginning temp of today to beginning temp of yesterday
+# same true for humidity
+
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,7 +18,7 @@ import kagglehub
 import os
 warnings.filterwarnings("ignore")
 
-KAGGLE_TOKEN = "type your api key for kaggle here"
+KAGGLE_TOKEN = "KGAT_6d26ebf584b9d44052424f267dffec66"
 
 # data loading
 def load_data(inside_path):
@@ -327,7 +332,7 @@ def plot_r2_histogram(train, test, feature_cols):
     ax.axvline(median_r2, color="gray",   linewidth=1.5, linestyle=":",  label=f"median = {median_r2:.3f}")
     ax.axvline(0,         color="red",    linewidth=1.0, linestyle="-",  alpha=0.4)
 
-    ax.set_xlabel("R² score (per thermostat)")
+    ax.set_xlabel("R^2 score (per thermostat)")
     ax.set_ylabel("count")
     ax.set_title("distribution of R^2 across all thermostats (pooled model)")
     ax.legend()
@@ -339,6 +344,123 @@ def plot_r2_histogram(train, test, feature_cols):
     plt.tight_layout()
     plt.savefig("r2_histogram.png", dpi=150, bbox_inches="tight")
     plt.show()
+
+# cross validation
+def run_time_series_cv(combined, feature_cols, target_col="runtime_minutes", n_splits=5):
+    combined = combined.sort_values("hour_bucket").reset_index(drop=True)
+
+    # build fold boundaries using time quantiles
+    # each fold's test window is a contiguous slice of time
+    time_vals = combined["hour_bucket"]
+    quantiles = np.linspace(0, 1, n_splits + 2)[1:-1]   # n_splits interior cuts
+    cutoffs = [time_vals.quantile(q) for q in quantiles]
+
+    print(f"\n{'='*60}")
+    print(f"  time-series cross-validation  ({n_splits} folds)")
+    print(f"{'='*60}")
+    print(f"  {'fold':>4}  {'train_rows':>10}  {'test_rows':>9}  "
+          f"{'r2':>6}  {'rmse':>6}  {'mae':>6}  {'cv%':>6}")
+    print("  " + "-"*58)
+
+    fold_results = []
+
+    for fold in range(n_splits):
+        # Train: everything strictly before this fold's test window
+        # Test:  the slice between cutoff[fold] and cutoff[fold+1]
+        #        (last fold takes everything after cutoff[-1])
+        train_cut = cutoffs[fold]
+        test_start = cutoffs[fold]
+        test_end   = cutoffs[fold + 1] if fold + 1 < len(cutoffs) else time_vals.max()
+
+        train_mask = combined["hour_bucket"] < train_cut
+        test_mask  = (combined["hour_bucket"] >= test_start) & \
+                     (combined["hour_bucket"] <= test_end)
+
+        tr = combined[train_mask].copy()
+        te = combined[test_mask].copy()
+
+        if len(tr) < 100 or len(te) < 10:
+            print(f"  {fold+1:>4}  skipped — not enough rows "
+                  f"(train={len(tr)}, test={len(te)})")
+            continue
+
+        # re-compute thermostat stats from training fold only (no leakage)
+        stats = (
+            tr.groupby("thermostat_id")["runtime_minutes"]
+            .agg(thermo_mean="mean",
+                 thermo_std="std",
+                 thermo_p25=lambda x: x.quantile(0.25))
+            .reset_index()
+        )
+        tr = tr.merge(stats, on="thermostat_id", how="left")
+        te = te.merge(stats, on="thermostat_id", how="left")
+
+        # drop rows where a thermostat appeared only in test 
+        te = te.dropna(subset=["thermo_mean"])
+
+        X_tr, y_tr = tr[feature_cols], tr[target_col]
+        X_te, y_te = te[feature_cols], te[target_col]
+
+        model = xgb.XGBRegressor(
+            n_estimators          = 1000,
+            learning_rate         = 0.02,
+            max_depth             = 8,
+            subsample             = 0.8,
+            colsample_bytree      = 0.8,
+            min_child_weight      = 10,
+            gamma                 = 1,
+            objective             = "reg:squarederror",
+            random_state          = 42,
+            verbosity             = 0,
+            early_stopping_rounds = 20,
+        )
+        model.fit(X_tr, y_tr,
+                  eval_set=[(X_te, y_te)],
+                  verbose=False)
+
+        preds = np.clip(model.predict(X_te), 0, 60)
+
+        r2   = r2_score(y_te, preds)
+        rmse = np.sqrt(mean_squared_error(y_te, preds))
+        mae  = mean_absolute_error(y_te, preds)
+        cv_pct = (rmse / y_te.mean() * 100) if y_te.mean() > 0 else float("nan")
+
+        fold_results.append({
+            "fold":       fold + 1,
+            "train_rows": len(tr),
+            "test_rows":  len(te),
+            "r2":         r2,
+            "rmse":       rmse,
+            "mae":        mae,
+            "cv_pct":     cv_pct,
+            "test_start": test_start,
+            "test_end":   test_end,
+        })
+
+        print(f"  {fold+1:>4}  {len(tr):>10}  {len(te):>9}  "
+              f"{r2:>6.3f}  {rmse:>6.2f}  {mae:>6.2f}  {cv_pct:>5.1f}%")
+
+    results_df = pd.DataFrame(fold_results)
+
+    if len(results_df):
+        print("\n  summary across folds:")
+        for metric in ["r2", "rmse", "mae", "cv_pct"]:
+            vals = results_df[metric]
+            print(f"  {metric:>8}: {vals.mean():.3f} ± {vals.std():.3f}  "
+                  f"(min {vals.min():.3f} / max {vals.max():.3f})")
+
+        print(f"\n  stability check:")
+        r2_range = results_df["r2"].max() - results_df["r2"].min()
+        if r2_range < 0.05:
+            print(f"  R^2 range = {r2_range:.3f} → stable estimate, your 0.440 is reliable")
+        elif r2_range < 0.15:
+            print(f"  R^2 range = {r2_range:.3f} → moderate variance, "
+                  f"some sensitivity to the split")
+        else:
+            print(f"  R^2 range = {r2_range:.3f} → high variance, "
+                  f"the single-split estimate was unreliable")
+
+    return results_df
 
 # main
 def main():
@@ -371,6 +493,8 @@ def main():
 
     # train pooled model
     train, test = add_thermostat_stats(train, test)
+    feature_cols_cv = FEATURE_COLS + ["thermostat_id", "thermo_mean", "thermo_std", "thermo_p25"]
+    cv_results = run_time_series_cv(combined, feature_cols=feature_cols_cv, n_splits=5)
     feature_cols = FEATURE_COLS + ["thermostat_id", "thermo_mean", "thermo_std", "thermo_p25"]
     X_train, y_train = train[feature_cols], train[TARGET_COL]
     X_test,  y_test  = test[feature_cols],  test[TARGET_COL]
