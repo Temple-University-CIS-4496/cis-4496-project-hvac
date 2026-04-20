@@ -1,0 +1,265 @@
+  combined daily dataset: 41792 rows, 100 thermostats
+  global train/test cutoff: 2025-12-05
+  train: 33494 rows | test: 8298 rows
+  after dropping nulls — train: 33494 | test: 8298
+
+============================================================
+  time-series cross-validation  (5 folds)
+============================================================
+  fold     train     test      r2     rmse      mae
+  --------------------------------------------------
+     1      6915     5546   0.715   2.4517   1.5518
+     2     13835     7081   0.729   2.9457   2.0251
+     3     20819     7070   0.733   2.6141   1.8998
+     4     27851     7029   0.679   2.6790   1.8366
+     5     34781     7011   0.704   3.1967   2.2688
+
+  summary across folds:
+     r2: 0.7122 ± 0.0219
+   rmse: 2.7774 ± 0.2943
+    mae: 1.9164 ± 0.2625
+  r2 range = 0.054 → moderate variance
+Best trial: 33. Best value: 2.416: 100%|█████████████████████████████████| 50/50 [01:06<00:00,  1.34s/it]
+
+  optuna best params (50 trials):
+    n_estimators: 1182
+    learning_rate: 0.010507900396258879
+    max_depth: 9
+    subsample: 0.7466573542814421
+    colsample_bytree: 0.4635394972709814
+    min_child_weight: 50
+    gamma: 4.501389115203417
+    reg_alpha: 1.9984075399666836
+    reg_lambda: 4.794326435295143
+  best val rmse: 2.4160 hrs
+
+==================================================
+  xgboost results
+==================================================
+  rmse : 3.2162 hrs
+  mae  : 2.3191 hrs
+  r2   : 0.6945
+  cv   : 44.2%
+
+  per-month results (pooled model):
+       month      r2    rmse     mae    rows
+  --------------------------------------------
+     2025-12   0.641  3.2317  2.2983    2574
+     2026-01   0.729  3.1977  2.3008    3069
+     2026-02   0.667  3.2226  2.3604    2655
+
+  per-thermostat results (individual models):
+      id      r2    rmse     mae   train   test
+  --------------------------------------------
+  timese   0.030  3.1701  2.6673     304     84
+  timese   0.000  0.6439  0.4416     296     84
+  timese   0.437  3.4463  2.4663     647     84
+  timese   0.416  2.1053  1.6618     249     84
+  timese   0.213  5.3641  4.0169     249     84
+  timese   0.251  2.5524  1.9276     260     84
+  timese   0.042  4.9659  3.6274     249     84
+  timese  -0.388  4.6439  3.4388     249     84
+  timese  -0.035  4.9094  4.0019     211     84
+  timese  -10.382  4.5026  3.3794     260     84
+  timese   0.165  5.4780  4.3512     207     84
+  timese   0.146  6.9401  5.8800     249     84
+  timese  -0.122  2.6478  2.1305     249     84
+  timese   0.359  3.3577  2.3073     242     84
+  timese   0.134  3.8405  2.9352      59     66
+  timese   0.000  1.0030  0.6722     296     84
+  timese  -1.699  2.3414  1.8619     249     84
+  timese   0.000  0.9564  0.6577     296     84
+  timese  -0.013  4.9318  4.0659     242     84
+  timese   0.273  3.8695  2.8139     207     84
+  timese   0.082  5.1479  3.1936     249     84
+  timese   0.020  3.2518  2.5167     260     84
+  timese   0.251  2.0749  1.7120     304     84
+  timese   0.028  5.4522  4.3390     249     84
+  timese  -0.033  5.0872  3.7813     211     84
+  timese   0.085  5.2486  3.9842     211     84
+  timese   0.187  4.8201  3.4237     242     84
+  timese   0.486  4.4756  3.5389     296     84
+  timese   0.420  4.9224  3.7459     296     84
+  timese   0.184  6.0566  5.0735     205     84
+  timese   0.044  4.5679  3.0653     260     84
+  timese   0.300  2.4799  1.7604     260     84
+  timese  -0.065  5.6736  4.2420     242     84
+  timese   0.237  3.1791  2.4355     325     84
+  timese   0.516  4.2335  3.3151     296     84
+  timese   0.044  3.2279  2.4321      85     84
+  timese  -0.089  3.6715  2.9783     205     84
+  timese   0.101  3.2622  2.1807     249     84
+  timese  -0.471  4.6708  3.3649      85     84
+  timese   0.060  2.9033  2.0044     242     84
+  timese   0.771  3.2141  2.5605     249     84
+  timese   0.094  4.3514  2.8195     242     84
+  timese   0.186  5.7264  4.8259     242     84
+  timese  -0.233  4.6140  3.5860     205     84
+  timese   0.448  3.8156  2.7900     260     84
+  timese  -0.090  7.9890  5.8774     249     84
+  timese   0.637  3.3702  2.6277     417     84
+  timese   0.701  1.3037  1.0178     431     84
+  timese   0.378  5.9244  4.7421     423     84
+  timese   0.149  5.4432  4.3995     417     84
+  timese   0.673  3.0621  2.3831     417     84
+  timese   0.402  5.5112  4.5180     417     84
+  timese   0.629  4.5473  3.5317     423     84
+  timese   0.377  3.2507  2.5204     423     84
+  timese  -0.156  5.2698  3.7265     429     84
+  timese  -0.260  5.6407  4.5944     211     84
+  timese   0.558  3.8046  3.0267     431     84
+  timese   0.682  2.3494  1.9134     417     84
+  timese   0.115  3.7672  2.9497     417     84
+  timese   0.389  2.4558  1.9762     417     84
+  timese   0.587  1.5722  1.2167     417     84
+  timese  -0.268  5.3102  4.1242     417     84
+  timese   0.317  1.8561  1.4064     431     84
+  timese   0.720  2.4696  1.8767     417     84
+  timese   0.488  2.0455  1.5437     417     84
+  timese   0.566  4.8749  3.8803     430     84
+  timese   0.284  5.3535  4.0448     242     84
+  timese   0.397  2.1347  1.6075     417     84
+  timese  -0.033  2.6461  2.0362     430     84
+  timese  -0.235  3.5535  2.8810     417     84
+  timese  -0.061  5.3171  4.2867     417     84
+  timese   0.550  1.6933  1.2720     431     84
+  timese  -0.120  8.6648  6.6772     417     84
+  timese   0.627  2.9100  2.3129     417     84
+  timese   0.451  5.4064  3.9477     430     84
+  timese   0.577  2.4970  2.0350     423     84
+  timese   0.288  1.9366  1.4941     431     84
+  timese   0.211  2.1124  1.7120     260     84
+  timese   0.531  1.7364  1.2654     417     84
+  timese   0.178  2.6754  2.0884     430     84
+  timese   0.169  2.9296  2.2166     417     84
+  timese   0.266  3.7062  3.0728     417     84
+  timese   0.723  1.5075  1.1682     423     84
+  timese   0.330  3.3733  2.6582     429     84
+  timese   0.389  2.0982  1.7268     431     84
+  timese   0.269  3.9262  2.6547     423     84
+  timese   0.383  2.0399  1.5405     431     84
+  timese   0.439  3.9334  3.0139     417     84
+  timese   0.310  4.9611  3.5731     249     84
+  timese   0.497  2.9405  2.2823     417     84
+  timese   0.343  3.9205  3.1139     429     84
+  timese  -0.008  6.3343  5.5450     417     84
+  timese   0.562  3.3042  2.2913     417     84
+  timese   0.653  2.9312  2.3488     417     84
+  timese   0.413  4.3738  3.6294     424     84
+  timese   0.578  1.7975  1.3098     417     84
+  timese   0.480  3.1762  2.3795     430     84
+  timese   0.533  3.4753  2.7565     417     84
+  timese   0.669  1.4802  1.2218     647     84
+
+================================================================================
+  per-thermostat diagnostic report
+================================================================================
+  equipment_id                                   cat             rt_mean  rt_std  rt_cv   pct0  train  test  pool_r2  indiv_r2
+  ----------------------------------------------------------------------------------------------------------------------------
+  timeseries_table_timeseries_table (46)         GOOD               3.61    5.31   1.47   37.5    249    84    0.866     0.771
+  timeseries_table_timeseries_table (75)         GOOD               6.78    5.88   0.87    7.6    417    84    0.855    -0.120
+  timeseries_table_timeseries_table (77)         GOOD               7.26    5.56   0.77    5.8    430    84    0.816     0.451
+  timeseries_table_timeseries_table (76)         GOOD               3.67    5.55   1.51   59.9    417    84    0.761     0.627
+  timeseries_table_timeseries_table (40)         GOOD               4.79    6.25   1.30   19.2    296    84    0.758     0.516
+  timeseries_table_timeseries_table (93)         GOOD               5.28    6.85   1.30   50.9    417    84    0.740     0.562
+  timeseries_table_timeseries_table (91)         GOOD               6.73    5.29   0.79   10.9    429    84    0.735     0.343
+  timeseries_table_timeseries_table (51)         GOOD               7.69    5.51   0.72    4.8    417    84    0.729     0.637
+  timeseries_table_timeseries_table (37)         GOOD               4.24    3.60   0.85    4.4    260    84    0.726     0.044
+  timeseries_table_timeseries_table (67)         GOOD               7.71    4.97   0.64    4.6    417    84    0.708     0.720
+  timeseries_table_timeseries_table (1)          GOOD               5.06    4.29   0.85   17.8    304    84    0.699     0.030
+  timeseries_table_timeseries_table (73)         GOOD               4.14    5.08   1.23   48.5    417    84    0.697    -0.061
+  timeseries_table_timeseries_table (61)         GOOD               6.01    4.28   0.71    7.4    417    84    0.691     0.682
+  timeseries_table_timeseries_table (28)         GOOD               2.18    3.21   1.47   21.9    249    84    0.690     0.082
+  timeseries_table_timeseries_table (84)         GOOD               5.65    3.76   0.67    4.1    423    84    0.688     0.723
+  timeseries_table_timeseries_table (96)         GOOD               4.98    4.09   0.82   17.4    417    84    0.679     0.578
+  timeseries_table_timeseries_table (63)         GOOD               4.08    4.05   0.99   30.7    417    84    0.679     0.389
+  timeseries_table_timeseries_table (9)          GOOD               4.56    4.54   1.00    7.8    249    84    0.677     0.310
+  timeseries_table_timeseries_table (55)         GOOD               7.47    5.16   0.69    6.0    417    84    0.675     0.673
+  timeseries_table_timeseries_table (95)         GOOD               6.46    4.63   0.72    6.3    424    84    0.662     0.413
+  timeseries_table_timeseries_table (32)         GOOD               3.26    3.92   1.20   15.3    211    84    0.659     0.085
+  timeseries_table_timeseries_table (57)         GOOD               7.24    5.80   0.80    5.1    423    84    0.656     0.629
+  timeseries_table_timeseries_table (69)         GOOD               4.58    6.42   1.40   55.8    430    84    0.656     0.566
+  timeseries_table_timeseries_table (97)         GOOD               3.13    5.12   1.64   61.3    430    84    0.656     0.480
+  timeseries_table_timeseries_table (60)         GOOD               8.87    6.12   0.69    7.6    431    84    0.651     0.558
+  timeseries_table_timeseries_table (99)         GOOD               3.59    4.07   1.13   34.5    647    84    0.651     0.669
+  timeseries_table_timeseries_table (47)         GOOD               3.37    3.45   1.02    8.0    242    84    0.650     0.094
+  timeseries_table_timeseries_table (52)         GOOD               4.31    3.01   0.70    7.0    431    84    0.644     0.701
+  timeseries_table_timeseries_table (78)         GOOD               6.08    4.73   0.78   21.7    423    84    0.639     0.577
+  timeseries_table_timeseries_table (7)          GOOD               6.24    5.25   0.84    8.9    242    84    0.635     0.284
+  timeseries_table_timeseries_table (64)         GOOD               4.04    2.94   0.73   14.2    417    84    0.633     0.587
+  timeseries_table_timeseries_table (5)          GOOD               6.11    5.88   0.96    4.1    260    84    0.632     0.448
+  timeseries_table_timeseries_table (36)         GOOD               7.78    5.44   0.70    8.7    205    84    0.622     0.184
+  timeseries_table_timeseries_table (58)         GOOD               4.81    5.44   1.13   46.4    423    84    0.622     0.377
+  timeseries_table_timeseries_table (38)         GOOD               3.71    3.15   0.85    7.8    260    84    0.613     0.300
+  timeseries_table_timeseries_table (94)         GOOD               8.08    6.22   0.77   19.6    417    84    0.611     0.653
+  timeseries_table_timeseries_table (88)         GOOD               3.75    3.12   0.83   17.3    431    84    0.610     0.383
+  timeseries_table_timeseries_table (49)         GOOD               4.46    4.11   0.92    1.0    205    84    0.603    -0.233
+  timeseries_table_timeseries_table (74)         GOOD               4.31    3.50   0.81    9.7    431    84    0.600     0.550
+  timeseries_table_timeseries_table (39)         GOOD               5.45    5.52   1.01    3.7    242    84    0.587    -0.065
+  timeseries_table_timeseries_table (80)         GOOD               4.39    3.01   0.69    8.2    417    84    0.586     0.531
+  timeseries_table_timeseries_table (98)         GOOD               6.76    4.84   0.72    8.2    417    84    0.585     0.533
+  timeseries_table_timeseries_table (83)         GOOD               3.28    4.70   1.43   57.3    417    84    0.582     0.266
+  timeseries_table_timeseries_table (22)         DATA_SPARSE        5.28    4.07   0.77   15.2     59    66    0.574     0.134
+  timeseries_table_timeseries_table (34)         GOOD               9.44    6.47   0.68    3.4    296    84    0.562     0.486
+  timeseries_table_timeseries_table (13)         GOOD               4.67    3.48   0.75    4.4    260    84    0.556     0.251
+  timeseries_table_timeseries_table (90)         GOOD               6.57    4.58   0.70    9.6    417    84    0.554     0.497
+  timeseries_table_timeseries_table (4)          GOOD               7.97    5.51   0.69   10.0    325    84    0.553     0.237
+  timeseries_table_timeseries_table (50)         GOOD               4.25    5.82   1.37   19.8    249    84    0.532    -0.090
+  timeseries_table_timeseries_table (35)         GOOD               8.10    6.81   0.84    2.6    296    84    0.501     0.420
+  timeseries_table_timeseries_table (43)         MODERATE           2.87    2.76   0.96   11.4    249    84    0.498     0.101
+  timeseries_table_timeseries_table (19)         MODERATE           5.56    5.75   1.03    6.2    207    84    0.495     0.165
+  timeseries_table_timeseries_table (85)         MODERATE           3.78    5.16   1.37   57.5    429    84    0.494     0.330
+  timeseries_table_timeseries_table (12)         MODERATE           6.30    4.55   0.72    3.9    249    84    0.492     0.213
+  timeseries_table_timeseries_table (3)          MODERATE           4.67    4.90   1.05   31.7    304    84    0.491     0.251
+  timeseries_table_timeseries_table (82)         MODERATE           4.94    4.37   0.89    9.6    417    84    0.487     0.169
+  timeseries_table_timeseries_table (56)         MODERATE           8.55    6.46   0.76    5.6    417    84    0.479     0.402
+  timeseries_table_timeseries_table (53)         MODERATE           7.38    6.87   0.93    7.7    423    84    0.467     0.378
+  timeseries_table_timeseries_table (33)         MODERATE           2.61    3.43   1.32   11.7    242    84    0.465     0.187
+  timeseries_table_timeseries_table (65)         MODERATE           3.67    7.07   1.93   76.6    417    84    0.461    -0.268
+  timeseries_table_timeseries_table (89)         MODERATE           7.55    5.66   0.75   16.0    417    84    0.450     0.439
+  timeseries_table_timeseries_table (31)         MODERATE           7.84    5.07   0.65    6.8    211    84    0.447    -0.033
+  timeseries_table_timeseries_table (81)         MODERATE           2.61    4.17   1.60   60.9    430    84    0.423     0.178
+  timeseries_table_timeseries_table (100)        MODERATE           8.11    7.20   0.89   17.6    647    84    0.422     0.437
+  timeseries_table_timeseries_table (11)         MODERATE           4.51    4.82   1.07    6.3    249    84    0.422     0.416
+  timeseries_table_timeseries_table (45)         MODERATE           2.34    2.45   1.05    8.9    242    84    0.418     0.060
+  timeseries_table_timeseries_table (21)         MODERATE           3.44    3.31   0.96    7.1    242    84    0.417     0.359
+  timeseries_table_timeseries_table (29)         MODERATE           4.10    3.50   0.85    7.8    260    84    0.400     0.020
+  timeseries_table_timeseries_table (87)         MODERATE           6.97    4.78   0.69    6.9    423    84    0.388     0.269
+  timeseries_table_timeseries_table (27)         MODERATE           8.80    5.31   0.60    6.2    207    84    0.371     0.273
+  timeseries_table_timeseries_table (70)         MODERATE           3.75    4.31   1.15   35.9    417    84    0.369     0.397
+  timeseries_table_timeseries_table (8)          MODERATE           2.21    2.04   0.92   14.2    260    84    0.368     0.211
+  timeseries_table_timeseries_table (79)         MODERATE           3.88    2.93   0.75    6.0    431    84    0.365     0.288
+  timeseries_table_timeseries_table (48)         MODERATE           7.89    6.70   0.85    9.5    242    84    0.330     0.186
+  timeseries_table_timeseries_table (92)         MODERATE           9.03    7.77   0.86   25.7    417    84    0.325    -0.008
+  timeseries_table_timeseries_table (72)         MODERATE           3.31    4.89   1.48   59.7    417    84    0.315    -0.235
+  timeseries_table_timeseries_table (26)         MODERATE           7.87    7.40   0.94    7.1    242    84    0.308    -0.013
+  timeseries_table_timeseries_table (86)         MODERATE           4.85    5.11   1.05   35.0    431    84    0.304     0.389
+  timeseries_table_timeseries_table (71)         MODERATE           2.53    4.12   1.63   62.1    430    84    0.299    -0.033
+  timeseries_table_timeseries_table (66)         MODERATE           5.83    3.41   0.59    3.5    431    84    0.265     0.317
+  timeseries_table_timeseries_table (44)         DATA_SPARSE        4.40    3.53   0.80    7.7     85    84    0.259    -0.471
+  timeseries_table_timeseries_table (41)         DATA_SPARSE        4.05    3.27   0.81    8.3     85    84    0.243     0.044
+  timeseries_table_timeseries_table (16)         MODERATE           9.37    5.41   0.58    2.0    211    84    0.239    -0.035
+  timeseries_table_timeseries_table (6)          MODERATE           4.58    5.60   1.22   40.0    211    84    0.237    -0.260
+  timeseries_table_timeseries_table (15)         MODERATE           3.60    4.12   1.15    4.5    249    84    0.235    -0.388
+  timeseries_table_timeseries_table (54)         MODERATE           7.41    6.08   0.82   10.8    417    84    0.228     0.149
+  timeseries_table_timeseries_table (42)         MODERATE           3.71    3.11   0.84    3.8    205    84    0.225    -0.089
+  timeseries_table_timeseries_table (68)         MODERATE           5.93    5.54   0.93    9.4    417    84    0.207     0.488
+  timeseries_table_timeseries_table (30)         UNPREDICTABLE      5.10    6.41   1.26   32.7    249    84    0.167     0.028
+  timeseries_table_timeseries_table (14)         UNPREDICTABLE      4.42    5.16   1.17   11.1    249    84    0.157     0.042
+  timeseries_table_timeseries_table (62)         UNPREDICTABLE      6.28    7.27   1.16   44.5    417    84    0.146     0.115
+  timeseries_table_timeseries_table (2)          UNPREDICTABLE      5.83    6.45   1.11   12.6    249    84    0.130     0.146
+  timeseries_table_timeseries_table (59)         UNPREDICTABLE      4.25    5.41   1.27   52.0    429    84    0.114    -0.156
+  timeseries_table_timeseries_table (20)         UNPREDICTABLE      3.74    4.88   1.31   31.8    249    84   -0.207    -0.122
+  timeseries_table_timeseries_table (24)         UNPREDICTABLE      3.26    3.29   1.01   10.8    249    84   -1.004    -1.699
+  timeseries_table_timeseries_table (17)         UNPREDICTABLE      4.51    4.47   0.99    9.0    260    84   -1.138   -10.382
+  timeseries_table_timeseries_table (10)         UNDEFINED          6.19    6.71   1.08   38.4    296    84      n/a       n/a
+  timeseries_table_timeseries_table (18)         UNDEFINED          3.85    2.99   0.78    5.1    138     0      n/a       n/a
+  timeseries_table_timeseries_table (23)         UNDEFINED          4.86    6.59   1.36   54.7    296    84      n/a       n/a
+  timeseries_table_timeseries_table (25)         UNDEFINED          6.30    6.59   1.04   37.9    296    84      n/a       n/a
+
+  category summary:
+    DATA_SPARSE   :   3 thermostats  |  mean pooled_r2 = 0.358
+    GOOD          :  49 thermostats  |  mean pooled_r2 = 0.657
+    MODERATE      :  36 thermostats  |  mean pooled_r2 = 0.378
+    UNDEFINED     :   4 thermostats  |  mean pooled_r2 = n/a
+    UNPREDICTABLE :   8 thermostats  |  mean pooled_r2 = -0.204
