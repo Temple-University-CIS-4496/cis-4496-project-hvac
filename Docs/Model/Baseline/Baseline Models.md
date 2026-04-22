@@ -1,7 +1,5 @@
 # Baseline Model Report
 
-
-
 ## Analytic Approach
 
 The baseline model for this project is a rolling window linear regression. While it is not the most effective time series model, it does offer an advantage over random prediction. For this model, we are predicting the daily runtime of the HVAC system using 26 variables chosen by mutual information score with our target variable. Of those variables, 20 are selected as eligible for becoming lagged features, while 6 are mutually exclusive to the day and are not lagged. We then determine an appropriate window size and amount of days to lag features for. 
@@ -71,32 +69,40 @@ Target Variable: Daily Runtime
 
 All features are selected based on their mutual information score with the target variable
 
-## Model Building
+## Model Building and Methodology
 
-While building this model, different parameters for rolling window sizing and lag_days were tested (window sizing between 3 - 21, lag_days between 1 - 10). We determined that a window size of 7 days, with 7 days of lagged information was the best model based on multiple evaluation criteria, including MAE and R^2.
+Prior to starting this model, we looked into multi-day gaps with null values in the data. Due to the lack of data in the temp_gradient_mean and setpoint_gap_mean variables, we chose to fill null values for these categories with 0. After this, and remaining multi-day gaps were dropped, and the largest window remaining was selected for the rolling window linear regression analysis.
 
-### In Progress Still
+To build the model, we select a WINDOW_SIZE and LAG_DAYS parameter. More information on the selection of these is below. We begin by creating our lagged features, which is done by shifting our lag worthy features back for each lag day, creating LAG_DAYS * 20 lagged features. Then we combine the new dataframe of lagged features with our unlagged features, plus the date for reporting purposes only.
 
-## Methodology
-While building the model, the window sizes listed above were tested, as well as others. The other window sizes included 3, 11, and 17 days, which represent midpoints in the above windows. They exhibited consistent linear trends with the non-naive windows. 
+Next, we build a set of windows to train the model on. Each window has X_train and X_test sets (len = WINDOW_SIZE) and Y_train and Y_test sets (len = 1) to develop the rolling window model. Once we have built our windows, each window is trained using sklearn's LinearRegression model. The predictions from the model are bounded between 0 and 24 hours, since predicting outside that window does not make sense. 
 
-In order to represent the available features from the dataset, minimal feature engineering was done. The engineered features were chosen to prevent data leakage and represent the irregular timeseries data in a regular fashion. In order to obtain accurate Y values, the runtime is derived from the running_mode feature in the raw data. The difference in run time at the first and last observation is computed, as well as whether the thermostat was running from the final observation until midnight.
+When training, we add y_true and y_pred to dataframes in order to be able to compute metrics for our models. We compute MSE, RMSE, MAE, MedianAE, MaxAE, MAPE, sMAPE, R^2, Explained Variance, and Pooled R^2. In order to make sure that we don't have outsize influences on our average metrics across the dataset, models which produce an R^2 less than -1 are dropped. However, in the final iterations of our baseline model, these outliers were minimal.
 
+While building this model, different parameters for rolling window sizing and lag_days were tested (window sizing between 3 - 21, lag_days between 1 - 10). We determined that a window size of 7 days, with 7 days of lagged information was the best model based on multiple evaluation criteria, including MAE, R^2, and the number of outliers (R^2 < -1) produced by the model.
+
+After looking at the results for the baseline model, we tested a few more models. The first, referred to as the naive model going forwards, was a simple prediction based on predicting the runtime as the previous day's runtime. Then, we tested two LinearRegression variants from scikit-learn: Ridge, and Lasso. Due to the results of Lasso regression discussed below, we also tested the hyperparameters for the model to determine which was the most effective.
 
 ## Results (Model Performance)
-* The naive model performs the best, with an R^2 of .59, and a RMSE of 1.19e4, which is about 3 hours. However, looking at the MAE and Median AE, which lower the impact of outliers, we see that these values are 7.22e3 and 4.46e3 seconds respectively (2 hours and 1.2 hours, respectively).
-* For non-naive models, the R^2 increases until stabilizing around a window of 21 days, with the R^2 for window sizes 21, 28, and 35 ranging between .37 and .38.
-* The model filters households with an R^2 value below -5. Typically, these dropped households have outlier R^2 values at the magnitude of -10^25. The naive model dropped 0 houses, while the window sizes of 21, 28, and 35 days dropped 6, 4, and 2 houses respectively. Further investigation revealed that the data for these households was missing significant chunks of runtime, where the HVAC unit claimed to not be turned on, or the inverse case where large jumps in runtime were seen due to the HVAC unit being on during the data gaps.
-* The graphs for the R^2 values for larger windows imply a median R^2 higher than the mean, with some left tail lowering the mean. It appears the median R^2 is around .5, which increases the feasibility of this task.
-* Graph of R^2 values of 94 houses for a rolling window size of 21 days
-<img width="400" height="300" alt="image" src="https://github.com/user-attachments/assets/dfcffbe5-7e87-4ea5-9d10-6950093df7e9" />
+Of all baseline models, the naive model performs the best, with an average R^2 of .562 and a pooled R^2 of .704. This model has an average median error of 1.22 hours per house, so it predicts most cases fairly well. There are a few outliers which have an R^2 below 0, but overall we see a normal distribution of R^2 across the houses.
 
+<img width="600" height="400" alt="image" src="https://github.com/user-attachments/assets/2d1f1e04-efb4-40f0-830b-c47039f8b2c9" />
+
+The baseline linear regression model performs worse than the naive model, with an average R^2 of .343 and a pooled R^2 of .539. Looking at the average median error, we see it is 1.47 hours. However, the difference appears when examining the mean absolute error. For the baseline model, it is 2.44 hours compared to the naive model's 1.86 hours. This makes sense, as from a graph of a single house (R^2 = .765), we can see an overreaction to a small spike around the start of May. In the data, this corresponds with a setpoint drop coinciding with a runtime spike, which shows that the model is currently sensitive to rapid changes. The R^2 chart for the baseline model shows a similar curve to the naive model, albeit with more variance and more negative R^2 plots.
+
+<div style="display: flex; gap: 10px; align-items: center;">
+  <img src="https://github.com/user-attachments/assets/3776015e-30c1-44d2-a29c-bf7368ad9ba2" style="height: 300px; width: auto;" />
+  <img src="https://github.com/user-attachments/assets/74aa3aec-0c4e-4da7-95a3-ef3754b9da48" style="height: 300px; width: auto;" />
+</div>
+
+The Lasso regression model shows a clear improvement over the baseline linear model, achieving an average R² of .515 and a pooled R² of .652. While the median absolute error remains the same at 1.47 hours, the mean absolute error is reduced to 2.12 hours, indicating better handling of larger errors compared to the baseline model. This suggests that the Lasso model is more robust to extreme runtime spikes, likely due to its ability to eliminate less informative or noisy features. By enforcing sparsity, the model avoids overreacting to short-term fluctuationss, resulting in more stable predictions. The overall distribution of R² scores also shows fewer negative values, reflecting improved generalization and reduced sensitivity to outlier behavior.
+
+<img width="600" height="400" alt="image" src="https://github.com/user-attachments/assets/eafea528-2e78-4f54-a1da-4df414f5e804" />
 
 
 ## Model Understanding
 
-From individual model performance on the csv processed_timeseries_data (10), we can tell that the outdoor temperature is the most important variable to how much the HVAC runs, having a high positive correllation. We also see a meedium sized positive correllation for the outdoor humidity. The setpoint and indoor temperatures have a small negative correllation, which makes sense because the majority of this file's data is in the summer. In addition, we expect the variables to have less impact because they have much less variance than outdoor temperatures. In order to perform a better analysis of coefficient trends across all the files, a feature to differentiate indoor and outdoor temperature could be created to explore the impact on seasonality that investigating files which may have peak runtimes in different seasons would have.
+
 
 ## Conclusion and Discussions for Next Steps
 
-Given the results, it seems feasible to model HVAC runtimes with our data. However, more precise modeling is needed. It does not appear that the model is overfitting based on individual csv exploration, though there is a chance that the model is overfitting which is causing the R^2 spikes. In order to create better models, we may need more creative feature generation. One which is interesting could be the creation of an absolute temperature differential from the setpoint, which may assist in determining how hard the HVAC system needs to work. Another interesting feature could be lagged outdoor temperatures, because HVAC systems tend to work harder during continuous heatwaves due to a lack of nighttime cooling. 
