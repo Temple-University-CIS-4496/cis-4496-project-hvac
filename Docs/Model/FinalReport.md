@@ -83,9 +83,9 @@ During the progress of our models, their effectiveness in predicting the HVAC ru
 
 | Metric | Value |
 | :--- | :--- |
-| Lasso Regression Pooled R-squared (7-Day Window) | 0.652 |
-| Lasso Regression Average R-squared (7-Day Window) | 0.515 |
-| Naive Baseline Pooled R-squared | 0.704 |
+| Lasso Regression Pooled R-squared (28-Day Window) | 0.706 |
+| Lasso Regression Average R-squared (28-Day Window) | 0.580 |
+| Naive Baseline Pooled R-squared | 0.696 |
 
 **Intermediate XGBoost Model Test Results (Globally Pooled, Chronological Split):**
 
