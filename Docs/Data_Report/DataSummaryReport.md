@@ -67,7 +67,7 @@ From a modeling perspective, this target is continuous and time-dependent, meani
 
 #### Figure 7: Daily runtime from thermostat 100 
 
- <img width="595" height="239" alt="Screenshot 2026-04-27 at 4 24 25 PM" src="https://github.com/user-attachments/assets/913399c9-3764-47fb-90db-ecfc7459d2f6" /><img width="501" height="314" alt="Screenshot 2026-04-27 at 4 25 01 PM" src="https://github.com/user-attachments/assets/30bd21a0-cdbb-4b0b-80a6-04072ffc92a2" />
+ <img width="595" height="239" alt="Screenshot 2026-04-27 at 4 24 25 PM" src="https://github.com/user-attachments/assets/913399c9-3764-47fb-90db-ecfc7459d2f6" />
 
 
 ## Individual variables 
