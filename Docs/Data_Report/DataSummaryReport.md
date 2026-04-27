@@ -190,6 +190,7 @@ Another trend within the data is the peak heating and cooling done by a thermost
 
 #### Figure 14: Daily Peak Analysis 
 <img width="599" height="408" alt="Screenshot 2026-04-27 at 4 27 07 PM" src="https://github.com/user-attachments/assets/e73db3a0-4926-46e1-a361-32168773668c" />
+
 ### Proportion of Time spent in each mode 
 
 Another observation is that the HVAC system spends most of its time idle or off, and heating and cooling modes are only activated when necessary. Additionally, heating and cooling systems appear to have similar active workloads, meaning that both modes operate for comparable amounts of time during their respective seasons. 
