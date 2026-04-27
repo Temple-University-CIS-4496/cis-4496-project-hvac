@@ -49,7 +49,10 @@ This architecture's most critical innovation is the Virtual Expiration Logic. By
 
 Comprehensive feature engineering further enhances this pipeline by computing Bessel-corrected weighted variance and weighted skewness/kurtosis, providing the model visibility into thermal environment volatility rather than just simple central tendencies.
 
-**$$INSERT PLOT: Seasonal Runtime Distribution and Environmental Facets$$**
+![coverage](./report_coverage.png)
+![seasonality](./seasonality.png)
+![runtime versus outdoor temperature](./runtime_v_outdoor_temp.png)
+![runtime versus outdoor humidty](./runtime_v_outdoor_humidity.png)
 
 This diagnostic suite visualizes the operational density and environmental drivers of the HVAC fleet across meteorological seasons. The violin plot captures the heavy-tailed nature of the runtime data, revealing that while Spring and Fall exhibit high concentrations of idle equipment (near zero runtime), Summer features a consistent, daily cooling bulge, and Winter is characterized by a long tail of extreme, intermittent heating peaks extending to 24 hours.
 
@@ -122,7 +125,8 @@ Mutual Information (MI) scoring was used to select the base features. The scores
 | 12 | true_outside_max | 0.2014 | 25 | daily_unknown_hours | 0.0955 |
 | 13 | outdoor_temp_max | 0.2012 | | | |
 
-**$$INSERT PLOT: Temporal Diagnostic Suite (ACF, Seasonal CCF, and Panel Verification)$$**
+![autocorellation and another correlation](./correlation_1.png)
+![more correlation](./correlation_2.png)
 
 This suite of diagnostics evaluates temporal memory and how lagging weather conditions impact current-day equipment runtime. The Autocorrelation Function (ACF) of daily runtime demonstrates a slow, steady decay over a 14-day period rather than a sharp drop-off, confirming strong state persistence where historical behavior is highly predictive of current states.
 
