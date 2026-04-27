@@ -161,7 +161,7 @@ The final LightGBM model achieved an R^2 of 0.7705, representing a 32.8% improve
 
 While the model performs excellently overall, a deep dive into the "Worst Quartile" reveals that the remaining error is concentrated in houses with extreme behavioral variance. Winter performance achieved R^2 = 0.7206, RMSE = 3.1902 hours, while summer performance reached R^2 = 0.7258, RMSE = 2.7857 hours, demonstrating robust seasonal generalization.
 
-![binned stuff on test set](./model_prefromance_1.png)
+![binned stuff on test set](./model_preformance_1.png)
 ![worst preformance exploration on test set](./worst_v_rest.png)
 
 The Binned Predicted vs. Actual plot demonstrates the calibration of the LightGBM model. The narrow IQR band along the 45-degree diagonal indicates that the model is unbiased for the majority of use cases, with variance only increasing during extreme peak-demand days.
