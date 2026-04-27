@@ -6,10 +6,12 @@ There are multiple data sets that are used in this project, the first of which i
 
 #### Private Kaggle Data Set: https://www.kaggle.com/datasets/lsobieski/raw-thermostat-data 
 
-#### Figure 1: Features from the Raw dataset 
-#### Figure 2: Additional Features from the Raw dataset 
+#### Figure 1: Features from the Raw dataset
+<img width="627" height="150" alt="Screenshot 2026-04-27 at 4 20 31 PM" src="https://github.com/user-attachments/assets/7d4e5ab9-fc2f-43dd-bff2-67f2e03af579" /><img width="631" height="190" alt="Screenshot 2026-04-27 at 4 22 23 PM" src="https://github.com/user-attachments/assets/750c0a24-4079-47ec-b15a-a7e633a694d6" />
 
- 
+
+#### Figure 2: Additional Features from the Raw dataset 
+ <img width="627" height="150" alt="Screenshot 2026-04-27 at 4 19 52 PM" src="https://github.com/user-attachments/assets/8a80e2aa-1b6c-4f81-aacf-e043242a90fd" />
 
 Figure 1 and 2 show an example of the data distribution from one thermostat before preprocessing. It shows that majority of the data besides set point and timestamp consist of null values and that the set point is between 18.3 degrees Celsius and 25.6 degrees Celsius. 
 
@@ -24,6 +26,8 @@ Before the processing of the raw data, several data quality issues were identifi
 First, to clean up the data, the thermostat time series data column names were standardized to follow a similar naming convention. This allowed all additional engineered variables to follow a similar naming pattern.  
 
 #### Figure 3: From the Raw Kaggle data set  
+<img width="631" height="252" alt="Screenshot 2026-04-27 at 4 22 57 PM" src="https://github.com/user-attachments/assets/38e76084-50a0-40e1-b39b-745334954df3" />
+<img width="631" height="190" alt="Screenshot 2026-04-27 at 4 22 35 PM" src="https://github.com/user-attachments/assets/6ab2d4b2-458e-4ae1-8288-a43ab258d1a6" />
 
 Next addressed was then missing values. As seen in figure 3, which shows the mode, occupied, and fan state have mostly null values. The reason why this is the case is if the thermostat records a data point, and the fan state does not change modes; it will put a null value until the mode changes again.  This was primarily addressed using forward filling, which allowed for the imputation of missing observations in a way that preserves temporal continuity. This approach ensured that key variables such as fan state, running mode, setpoint temperature, and indoor temperature maintained complete and continuous time series without introducing artificial variability. Forward filling was applied to preserve temporal continuity in state variables such as fan status, running mode, and setpoint temperature, under the assumption that HVAC states persist between recorded changes. 
 
@@ -31,9 +35,11 @@ Afte this, the running mode was normalized, then virtual rows were injected. Sin
 
 #### Figure 4: Time gaps from thermostat 1 
 
- 
+ <img width="631" height="252" alt="Screenshot 2026-04-27 at 4 23 08 PM" src="https://github.com/user-attachments/assets/969e046d-1b69-48e7-be52-31b483d6725c" />
 
 #### Figure 5: Time Gaps from thermostat 100  
+<img width="631" height="252" alt="Screenshot 2026-04-27 at 4 23 19 PM" src="https://github.com/user-attachments/assets/c0613dc2-495a-46c7-9abd-ed5bdcee6b9a" />
+
 
 To address the fact that outdoor weather data was stored separately from the thermostat datasets, a multi-step merging process was implemented. First, an outer join was used to preserve all available timestamps from both datasets, ensuring that no potential observations were lost during integration. Finally, a left join was used to map the enriched weather data back to each individual thermostat dataset, ensuring that every thermostat observation had a corresponding set of aligned environmental variables. Virtual rows were inserted to handle irregular timestamp gaps greater than 30 minutes, ensuring consistent temporal spacing across observations. This logic includes a specific numeric reset for the setpoint, acting as a crucial "kill-switch" to terminate forward-fill persistence and prevent stale targets from influencing post-blackout predictions. Additionally, the midnight-slicing ensures that runtime is accounted for in the correct calendar day, even for intervals spanning across 00:00:00. 
 
@@ -57,11 +63,12 @@ From a modeling perspective, this target is continuous and time-dependent, meani
 
 #### Figure 6: Daily Runtime from thermostat 1 
 
- 
+ <img width="595" height="239" alt="Screenshot 2026-04-27 at 4 24 16 PM" src="https://github.com/user-attachments/assets/5e06067b-0ba1-4bfe-acdb-c30a347edf44" />
 
 #### Figure 7: Daily runtime from thermostat 100 
 
- 
+ <img width="595" height="239" alt="Screenshot 2026-04-27 at 4 24 25 PM" src="https://github.com/user-attachments/assets/913399c9-3764-47fb-90db-ecfc7459d2f6" /><img width="501" height="314" alt="Screenshot 2026-04-27 at 4 25 01 PM" src="https://github.com/user-attachments/assets/30bd21a0-cdbb-4b0b-80a6-04072ffc92a2" />
+
 
 ## Individual variables 
 
@@ -123,14 +130,14 @@ The ranking of variables was determined using mutual information scores which is
 
 #### Figure 8: Top 25 Base Features (By Mutual Information) 
 
- 
+ <img width="501" height="314" alt="Screenshot 2026-04-27 at 4 25 11 PM" src="https://github.com/user-attachments/assets/a4b6a0ae-7a59-4e17-8801-4fff13e1e949" />
 
 Another key finding for the variable accuracy is that the ACF in figure 9 shows the past runtime remains predictive of current behavior for up to about two weeks. 
 
 #### Figure 9: ACF and CCF  
 
  
-
+<img width="536" height="493" alt="Screenshot 2026-04-27 at 4 25 30 PM" src="https://github.com/user-attachments/assets/0d7ec2a1-a520-41ae-a58f-c53f451a07f2" />
 
 
  
@@ -154,21 +161,26 @@ There are clear seasonal differences between the heating season (winter) and the
 
 #### Figure 10
 
- 
+ <img width="647" height="511" alt="Screenshot 2026-04-27 at 4 26 27 PM" src="https://github.com/user-attachments/assets/d9f196b4-78b8-4bac-9d0c-524657cc5968" />
 
 ### CCF by Season 
 
 Some notable trends in the data is that the impact of temperature on runtime depends on the season (figure 11): in winter, colder temperatures are associated with increased runtime, while in summer, higher temperatures drive more runtime. When all data is pooled together, these opposing seasonal effects cancel out, making the relationship appear weak or nonexistent. Additionally, differences across individual pieces of equipment indicate that behavior is not uniform, so analyzing each unit separately is important. Overall, this means that accurate modeling should incorporate lagged effects, seasonal context, and account for unit-level variation.  
 
 #### Figure 11: CCF by SeasonRuntime Vs Outdoor Temperature by Season 
+<img width="647" height="431" alt="Screenshot 2026-04-27 at 4 26 44 PM" src="https://github.com/user-attachments/assets/9555edd3-bb77-445d-8c3e-1637dfcde4e5" />
+
 
 Figure 12 illustrates the relationship between HVAC runtime and outdoor temperature across different seasons, highlighting clear seasonal separation in system behavior. The plot shows that runtime responds differently to temperature depending on the time of year, with winter conditions generally exhibiting increased heating-related activity at lower temperatures, while summer conditions show elevated cooling-related runtime as temperatures rise. This seasonal stratification reinforces that temperature effects are not uniform year-round but instead depend strongly on operational context and seasonal demand patterns. 
 
 #### Figure 12: Runtime vs Outdoor Temperature 
+<img width="599" height="408" alt="Screenshot 2026-04-27 at 4 26 58 PM" src="https://github.com/user-attachments/assets/9cf99ce8-3265-49ba-aab7-43ccbd277d27" />
 
 #### Figure 13: Average HVAC Active Rate by Month and Season 
 
  
+<img width="630" height="408" alt="Screenshot 2026-04-27 at 4 27 23 PM" src="https://github.com/user-attachments/assets/06cae367-4ee5-4cf5-b95b-b84f5649c6dd" />
+
 
  
 
@@ -177,14 +189,15 @@ Figure 12 illustrates the relationship between HVAC runtime and outdoor temperat
 Another trend within the data is the peak heating and cooling done by a thermostat. This figure shows that for the heating the peak at 7 am during the morning and for cooking at 6pn at night. These peak heating and cooling times make sense when it is the hottest outside at around 2-3pm. This additionally shows a trend of runtime within the heating and cooling.  
 
 #### Figure 14: Daily Peak Analysis 
-
+<img width="599" height="408" alt="Screenshot 2026-04-27 at 4 27 07 PM" src="https://github.com/user-attachments/assets/e73db3a0-4926-46e1-a361-32168773668c" />
 ### Proportion of Time spent in each mode 
 
 Another observation is that the HVAC system spends most of its time idle or off, and heating and cooling modes are only activated when necessary. Additionally, heating and cooling systems appear to have similar active workloads, meaning that both modes operate for comparable amounts of time during their respective seasons. 
 
 #### Figure 15: Proportion of Time spent in each mode  
 
-  
+<img width="388" height="363" alt="Screenshot 2026-04-27 at 4 27 42 PM" src="https://github.com/user-attachments/assets/9abed467-c7dc-4bbd-a1de-a5e9c69dc6c0" />
+
 
 This idle-dominant behavior suggests that HVAC systems operate in a threshold-based control regime rather than continuous operation. This is consistent with real-world thermostat logic, where systems activate only when indoor temperature deviates beyond a set threshold from the desired setpoint. 
 
