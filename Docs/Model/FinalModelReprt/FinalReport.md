@@ -49,7 +49,6 @@ This architecture's most critical innovation is the Virtual Expiration Logic. By
 
 Comprehensive feature engineering further enhances this pipeline by computing Bessel-corrected weighted variance and weighted skewness/kurtosis, providing the model visibility into thermal environment volatility rather than just simple central tendencies.
 
-![coverage](./report_coverage.png)
 ![seasonality](./seasonality.png)
 ![runtime versus outdoor temperature](./runtime_v_outdoor_temp.png)
 ![runtime versus outdoor humidty](./runtime_v_outdoor_humidity.png)
@@ -83,7 +82,7 @@ To preserve chronological integrity while ensuring seasonal representation, we i
 | Validation | 8 | 10,688 | ~26% |
 | Testing | 10 | 15,333 | ~36% |
 
-**$$INSERT PLOT: Data Coverage / Reporting Heatmap$$**
+![coverage](./report_coverage.png)
 
 The Reporting Heatmap displays the temporal density of pings for all 100 equipment IDs. The visualization justifies the use of the Continuous Calendar Grid (local_grid), as it exposes significant gaps in reporting that would otherwise lead to incorrect lag generation if treated as a sparse series.
 
