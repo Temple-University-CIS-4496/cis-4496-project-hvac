@@ -236,11 +236,11 @@ The practical consequence for modeling: because the *direction* of the temperatu
 
 | Stage | Strategy | R² | RMSE (hrs) | MAE (hrs) |
 | --- | --- | --- | --- | --- |
-| Baseline | Local Lasso, 28-day rolling window | 0.580 (avg) | -- | 1.9200 |
+| Baseline | Local Lasso, 28-day rolling window | 0.706 | -- | 1.9200 |
 | Intermediate | XGBoost, global seasonal | 0.7050 | 2.9110 | 2.0470 |
 | Final | LightGBM, global stratified blocked | 0.7705 | 2.7372 | 1.9024 |
 
-The final LightGBM model improves R² by about 33% relative to the per-house Lasso baseline and by about 9% relative to the seasonal XGBoost intermediate, while the absolute MAE drops from 2.05 hours back down to 1.90 hours. The MAE matters in practical terms: it is the average error a downstream user (e.g. a load-forecasting application) should expect when the model predicts how many hours an HVAC compressor will run on a given day.
+The final LightGBM model improves R² by about 9% relative to the pooled Lasso baseline and the seasonal XGBoost intermediate, while the absolute MAE drops from 2.05 hours back down to 1.90 hours. The MAE matters in practical terms: it is the average error a downstream user (e.g. a load-forecasting application) should expect when the model predicts how many hours an HVAC compressor will run on a given day.
 
 ### 5.2 What the model is using
 
