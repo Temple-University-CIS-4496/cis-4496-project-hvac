@@ -33,19 +33,17 @@ First, to clean up the data, the thermostat time series data column names were s
 
 We then addressed the missing values in our dataset. As seen in Figure 3, the mode, occupied, and fan state variables primarily have null values. This is the case because if the thermostat records a data point and the fan state does not change modes, it will record a null value until the mode changes again. We chose to  address this using forward filling, which allowed for the imputation of missing observations in a way that preserved temporal continuity. This approach ensured that key variables such as fan state, running mode, setpoint temperature, and indoor temperature maintained complete and continuous time series without introducing artificial variability. Forward filling was applied to preserve temporal continuity in state variables such as fan status, running mode, and setpoint temperature, under the assumption that HVAC states persist between recorded changes. 
 
------
+After this, the running mode was normalized, then virtual rows were injected. Since the thermostat timestamps do not have consistent time intervals, if there is a time gap that is more than 30 minutes, we insert a row to designate the time as "unknown". Examples of these time gaps can be seen in Figures 4 and 5. Figure 4 shows a thermostat that has time gaps where most are concentrated between 0 and 5 hours. However, there are about 5 outliers that have larger gaps with more than 500-hour gaps. This is different than Figure 5, where the highest gap is 24 hours, showing that Figure 4 has significant gaps in the thermostat data which could impact the model's accuracy. 
 
-After this, the running mode was normalized, then virtual rows were injected. Since the thermostat timestamps are not heartbeat data with consistent time intervals, if there is a time gap that is more than 30 minutes, there is an unknown row that is inserted. Examples of these time gaps can be seen in figures 4 and figures 5. Figure 4 shows a thermostat that has time gabs up most of them are concentrated between the 0-hour mark and the 5-hour mark. However, there are about 5 outliers that have larger gaps with more than 500-hour gaps. This is different to figure 5 where the highest gap is 24 hours. Showing that figure 4 has significant gaps in their thermostat data which could cause issues with the model's accuracy.   
+#### Figure 4: Time Gaps from Thermostat 1 
 
-#### Figure 4: Time gaps from thermostat 1 
+<img width="631" height="252" alt="Screenshot 2026-04-27 at 4 23 08 PM" src="https://github.com/user-attachments/assets/969e046d-1b69-48e7-be52-31b483d6725c" />
 
- <img width="631" height="252" alt="Screenshot 2026-04-27 at 4 23 08 PM" src="https://github.com/user-attachments/assets/969e046d-1b69-48e7-be52-31b483d6725c" />
-
-#### Figure 5: Time Gaps from thermostat 100  
+#### Figure 5: Time Gaps from Thermostat 100  
 <img width="631" height="252" alt="Screenshot 2026-04-27 at 4 23 19 PM" src="https://github.com/user-attachments/assets/c0613dc2-495a-46c7-9abd-ed5bdcee6b9a" />
 
 
-To address the fact that outdoor weather data was stored separately from the thermostat datasets, a multi-step merging process was implemented. First, an outer join was used to preserve all available timestamps from both datasets, ensuring that no potential observations were lost during integration. Finally, a left join was used to map the enriched weather data back to each individual thermostat dataset, ensuring that every thermostat observation had a corresponding set of aligned environmental variables. Virtual rows were inserted to handle irregular timestamp gaps greater than 30 minutes, ensuring consistent temporal spacing across observations. This logic includes a specific numeric reset for the setpoint, acting as a crucial "kill-switch" to terminate forward-fill persistence and prevent stale targets from influencing post-blackout predictions. Additionally, the midnight-slicing ensures that runtime is accounted for in the correct calendar day, even for intervals spanning across 00:00:00. 
+To address the fact that outdoor weather data was stored separately from the thermostat datasets, a multi-step merging process was implemented. First, an outer join was used to preserve all available timestamps from both datasets, ensuring that no potential observations were lost during integration. Then, a left join was used to map the enriched weather data back to each individual thermostat dataset, ensuring that every thermostat observation had a corresponding set of aligned environmental variables. Virtual rows were inserted to handle irregular timestamp gaps greater than 30 minutes, ensuring consistent temporal spacing across observations. This logic includes a specific numeric reset for the setpoint, acting as a crucial "kill-switch" to terminate forward-fill persistence and prevent stale targets from influencing post-blackout predictions. Additionally, the midnight-slicing ensures that runtime is accounted for in the correct calendar day, even for intervals spanning across 00:00:00. 
 
 Comprehensive feature engineering further enhances this pipeline by computing Bessel-corrected weighted variance and weighted skewness/kurtosis, providing the model visibility into thermal environment volatility rather than just simple central tendencies. 
 
@@ -59,39 +57,39 @@ Overall, these preprocessing steps transformed the raw, heterogeneous time-serie
 
 #### Private Processed Data Sets: https://www.kaggle.com/datasets/lsobieski/raw-thermostat-data  
 
-## Target variable 
+## Target Variable 
 
 The target variable in this analysis is HVAC runtime, defined as the total time an HVAC system operates (heating or cooling) during a given time interval. The target variable is defined as daily runtime hours, representing the total number of hours per day that the HVAC system is actively running. This variable is critical for estimating energy consumption and understanding how environmental conditions and user behavior influence HVAC usage. This is because the only time the HVAC unit uses energy is when it is running. When it is off, it will not use any energy.  
 
-From a modeling perspective, this target is continuous and time-dependent, meaning it is influenced not only by current-day conditions but also by prior system behavior and environmental inertia. Figures 6 and 7 show the daily run time from two thermostats. Which shows that it is a continuous value, and also shows that the runtime does vary per house.  
+From a modeling perspective, this target is continuous and time-dependent, meaning it is influenced not only by current-day conditions but also by prior system behavior and environmental inertia. Figures 6 and 7 show the daily run time from two thermostats, which shows that it is a continuous value, and that the runtime varies per house.  
 
-#### Figure 6: Daily Runtime from thermostat 1 
+#### Figure 6: Daily Runtime from Thermostat 1 
 
  <img width="595" height="239" alt="Screenshot 2026-04-27 at 4 24 16 PM" src="https://github.com/user-attachments/assets/5e06067b-0ba1-4bfe-acdb-c30a347edf44" />
 
-#### Figure 7: Daily runtime from thermostat 100 
+#### Figure 7: Daily Runtime from Thermostat 100 
 
  <img width="595" height="239" alt="Screenshot 2026-04-27 at 4 24 25 PM" src="https://github.com/user-attachments/assets/913399c9-3764-47fb-90db-ecfc7459d2f6" />
 
 
-## Individual variables 
+## Individual Variables 
 
 The variables in this dataset can be grouped into four categories: weather variables, thermostat variables, time variables, and engineered features. 
 
-### Weather variables: 
+### Weather Variables: 
 Outdoor temperature and humidity measurements that influence heating and cooling demand. Weather variables are particularly important because HVAC systems are fundamentally reactive systems designed to maintain indoor comfort relative to external environmental conditions. Sudden changes in temperature or humidity often led to increased system activation, especially when indoor setpoints deviate significantly from outdoor conditions.  
 
-### Thermostat variables: 
+### Thermostat Variables: 
 Indoor temperature, setpoint temperature, occupancy state, and system mode. 
 
 These variables represent user-driven and system-driven control mechanisms. The setpoint temperature reflects user preference, while the occupancy state introduces behavioral context, indicating whether energy-saving modes are likely to be active. System mode (heating, cooling, fan, off) directly encodes operational state transitions. 
 
-### Time variables: 
+### Time Variables: 
 Timestamp-derived features such as hour of day, day of week, and seasonality (e.g., month). 
 
 Time-based variables capture behavioral cycles that are not directly observable from temperature alone. For example, HVAC usage tends to increase during morning and evening hours due to occupancy patterns and decreases during mid-day or late-night hours when homes are unoccupied or thermally stable. 
 
-### Engineered features (NEW): 
+### Engineered Features: 
 These were created to better capture patterns in HVAC usage and improve predictive performance. 
 
 #### Lagged Features (based on previous LAG_DAYS):  
@@ -128,40 +126,28 @@ outdoor_temp_trend_gradient (daily temperature trend)
 
 Unlagged features capture same-day environmental summaries that are not dependent on previous days' data. These variables are particularly useful for real-time prediction scenarios where only current-day information is available. 
 
-## Variable ranking 
+## Variable Ranking 
 
-The ranking of variables was determined using mutual information scores which is denoted in figure 8 as a score. However current day variables like indoor temperature were excluded to prevent temporal leakage. This shows that Daily Hours Off and Daily Heating hours are the top two highest ranked variables.  
+The ranking of variables was determined using mutual information scores, which are denoted in Figure 8 as a score. However, current day variables like indoor temperature were excluded to prevent temporal leakage. This shows that Daily Hours Off and Daily Heating Hours are the two highest ranked variables.  
 
 #### Figure 8: Top 25 Base Features (By Mutual Information) 
 
  <img width="501" height="314" alt="Screenshot 2026-04-27 at 4 25 11 PM" src="https://github.com/user-attachments/assets/a4b6a0ae-7a59-4e17-8801-4fff13e1e949" />
 
-Another key finding for the variable accuracy is that the ACF in figure 9 shows the past runtime remains predictive of current behavior for up to about two weeks. 
+Another key finding for the variable accuracy is the ACF in Figure 9, which shows that past runtime remains predictive of current behavior for about two weeks. 
 
 #### Figure 9: ACF and CCF  
 
  
 <img width="536" height="493" alt="Screenshot 2026-04-27 at 4 25 30 PM" src="https://github.com/user-attachments/assets/0d7ec2a1-a520-41ae-a58f-c53f451a07f2" />
 
-
- 
-
 Finally, distribution-based temperature features such as quartiles, skewness, and time-weighted averages show that variability in weather conditions matters just as much as average conditions. Days with unstable or highly fluctuating temperatures tend to produce higher HVAC activity compared to stable temperature days, even when the average temperature is similar. 
 
- 
+## Relationship Between Explanatory Variables and Target Variables 
 
- 
+### Analysis of the Relationship Between Explanatory Variables and HVAC Runtime Revealed Clear Patterns 
 
- 
-
- 
- 
-
-## Relationship between explanatory variables and target Variables 
-
-### Analysis of the relationship between explanatory variables and HVAC runtime revealed clear patterns. 
-
-There are clear seasonal differences between the heating season (winter) and the cooling season (summer). During the heating season, there are large peaks in the early morning, while in the cooling season, there are peaks in the afternoon that trigger AC activation. This shows that when outdoor temperatures increase during the cooling season, the HVAC system must work harder to maintain indoor comfort. 
+There are clear seasonal differences between the heating season (winter) and the cooling season (summer). During the heating season, there are large peaks in the early morning, while in the cooling season, there are peaks in the afternoon that trigger AC activation. This shows that when outdoor temperatures increase over the course of the day during the cooling season, the HVAC system must work harder to maintain indoor comfort. 
 
 #### Figure 10
 
@@ -169,9 +155,9 @@ There are clear seasonal differences between the heating season (winter) and the
 
 ### CCF by Season 
 
-Some notable trends in the data is that the impact of temperature on runtime depends on the season (figure 11): in winter, colder temperatures are associated with increased runtime, while in summer, higher temperatures drive more runtime. When all data is pooled together, these opposing seasonal effects cancel out, making the relationship appear weak or nonexistent. Additionally, differences across individual pieces of equipment indicate that behavior is not uniform, so analyzing each unit separately is important. Overall, this means that accurate modeling should incorporate lagged effects, seasonal context, and account for unit-level variation.  
+One notable trend in the data is that the impact of temperature on runtime depends on the season (Figure 11). In winter, colder temperatures are associated with increased runtime, while in summer, higher temperatures drive more runtime. When all data is pooled together, these opposing seasonal effects cancel out, making the relationship appear weak or nonexistent. Additionally, differences across individual pieces of equipment indicate that behavior is not uniform, so analyzing each unit separately is important. Overall, this means that accurate modeling should incorporate lagged effects, seasonal context, and account for unit-level variation.  
 
-#### Figure 11: CCF by SeasonRuntime Vs Outdoor Temperature by Season 
+#### Figure 11: CCF by Season Runtime Vs Outdoor Temperature by Season 
 <img width="647" height="431" alt="Screenshot 2026-04-27 at 4 26 44 PM" src="https://github.com/user-attachments/assets/9555edd3-bb77-445d-8c3e-1637dfcde4e5" />
 
 
@@ -181,38 +167,34 @@ Figure 12 illustrates the relationship between HVAC runtime and outdoor temperat
 <img width="599" height="408" alt="Screenshot 2026-04-27 at 4 26 58 PM" src="https://github.com/user-attachments/assets/9cf99ce8-3265-49ba-aab7-43ccbd277d27" />
 
 #### Figure 13: Average HVAC Active Rate by Month and Season 
-
  
 <img width="630" height="408" alt="Screenshot 2026-04-27 at 4 27 23 PM" src="https://github.com/user-attachments/assets/06cae367-4ee5-4cf5-b95b-b84f5649c6dd" />
 
 
- 
-
 ### Daily Peak Analysis 
 
-Another trend within the data is the peak heating and cooling done by a thermostat. This figure shows that for the heating the peak at 7 am during the morning and for cooking at 6pn at night. These peak heating and cooling times make sense when it is the hottest outside at around 2-3pm. This additionally shows a trend of runtime within the heating and cooling.  
+Another trend within the data is the peak heating and cooling done by a thermostat. This figure shows that for the heating the peak occurs at 7 AM and for cooling the peak occurs at 6 PM. These peak heating and cooling times make sense when it is the hottest outside at around 2-3 PM. Additionally, this shows a trend of runtime within the heating and cooling.  
 
 #### Figure 14: Daily Peak Analysis 
 <img width="599" height="408" alt="Screenshot 2026-04-27 at 4 27 07 PM" src="https://github.com/user-attachments/assets/e73db3a0-4926-46e1-a361-32168773668c" />
 
-### Proportion of Time spent in each mode 
+### Proportion of Time Spent in Each Mode 
 
 Another observation is that the HVAC system spends most of its time idle or off, and heating and cooling modes are only activated when necessary. Additionally, heating and cooling systems appear to have similar active workloads, meaning that both modes operate for comparable amounts of time during their respective seasons. 
 
-#### Figure 15: Proportion of Time spent in each mode  
+#### Figure 15: Proportion of Time Spent in Each Mode  
 
 <img width="388" height="363" alt="Screenshot 2026-04-27 at 4 27 42 PM" src="https://github.com/user-attachments/assets/9abed467-c7dc-4bbd-a1de-a5e9c69dc6c0" />
-
 
 This idle-dominant behavior suggests that HVAC systems operate in a threshold-based control regime rather than continuous operation. This is consistent with real-world thermostat logic, where systems activate only when indoor temperature deviates beyond a set threshold from the desired setpoint. 
 
 ### How the Observed Trends Relate to the Project Problem Statement 
 
-The main goal of this project is to predict HVAC runtime based on weather conditions, thermostat behavior, and time-based patterns. The trends observed in the data strongly support this objective and help explain how runtime is actually driven in real systems.  
+The main goal of this project is to predict HVAC runtime based on weather conditions, thermostat behavior, and time-based patterns. The trends observed in the data strongly support this objective and help explain how runtime is actually driven in real systems.
 
-The observed trends directly support the project’s goal of predicting HVAC runtime from weather conditions, thermostat behavior, and time-based patterns by showing that runtime is strongly structured and explainable rather than random. Across all analyses, outdoor temperature and seasonal context emerge as key drivers of HVAC usage, which confirms that weather-based features are essential predictors for the model. The clear seasonal separation in behavior—where winter is dominated by heating demand and summer by cooling demand—shows that the relationship between temperature and runtime is not constant throughout the year, but changes depending on operational context. This is critical for the problem statement because it demonstrates that accurate prediction requires capturing these seasonal shifts rather than relying on a single global relationship. 
+The observed trends directly support the project’s goal of predicting HVAC runtime from weather conditions, thermostat behavior, and time-based patterns by showing that runtime is strongly structured and explainable rather than random. Across all analyses, outdoor temperature and seasonal context emerge as key drivers of HVAC usage, which confirms that weather-based features are essential predictors for the model. The clear seasonal separation in behavior, where winter is dominated by heating demand and summer by cooling demand, shows that the relationship between temperature and runtime is not constant throughout the year, but changes depending on operational context. This is critical for the problem statement because it demonstrates that accurate prediction requires capturing these seasonal shifts rather than relying on a single global relationship. 
 
-The CCF by season (Figure 11) further strengthens this by showing that temperature impacts runtime in opposite ways depending on the season: colder temperatures increase runtime in winter, while hotter temperatures increase runtime in summer. When all data is combined, these effects cancel out, which would mislead a predictive model into underestimating the importance of temperature. This directly informs the modeling approach by showing why seasonal stratification is necessary for accurate prediction. 
+The CCF by season (Figure 11) further strengthens this by showing that temperature impacts runtime in opposite ways depending on the season. Colder temperatures increase runtime in winter, while hotter temperatures increase runtime in summer. When all data is combined, these effects cancel out, which would mislead a predictive model into underestimating the importance of temperature. This directly informs the modeling approach by showing why seasonal stratification is necessary for accurate prediction. 
 
 The Runtime vs Outdoor Temperature by Season plot (Figure 12) reinforces the same idea by showing distinct temperature-response patterns across seasons, confirming that HVAC runtime is highly sensitive to environmental conditions in a structured way. The average HVAC active rate (Figure 13) further relates to the problem statement by showing that HVAC operation is not continuous but occurs in demand-driven bursts, meaning runtime prediction must account for periods of activation versus inactivity rather than assuming steady usage. 
 
@@ -220,7 +202,7 @@ Daily peak analysis (Figure 14) connects directly to time-based prediction featu
 
 Finally, the proportion of time spent in each mode (Figure 15) shows that HVAC systems spend most of their time idle and only activate when necessary, confirming that runtime is driven by threshold-based control behavior tied to setpoints and environmental triggers. Overall, these trends validate the problem statement by showing that HVAC runtime can be effectively predicted using a combination of weather conditions, seasonal context, and time-based patterns, all of which are clearly reflected in the observed system behavior. 
 
-## Does the Data Foretell Any Issues That May Arise in Later Stages of the Project Lifecycle? 
+## Potential Issues with Our Data
 
 The data reveals several potential issues that could impact later stages such as modeling, evaluation, and deployment. 
 
