@@ -1,80 +1,131 @@
-# Final Model Report: Predictive Analysis of HVAC Compressor Runtime
+# Final Model Report: Predicting Daily HVAC Compressor Runtime
 
 ## 1. Analytical Method & Evolution
 
-The objective of this project was to predict daily HVAC compressor runtime (bounded 0, 24 hours) across a heterogeneous fleet of 100 residential thermostats. The analytical approach underwent a rigorous three-stage evolution, moving from local linear baselines to a global gradient-boosted framework capable of capturing complex seasonal and behavioral patterns.
+The goal of this project is to predict how many hours per day each HVAC compressor will run, on a fleet of 100 residential thermostats. The target, `daily_runtime_hours`, is bounded between 0 and 24, and is the sum of time the system spent actively heating or cooling on a given calendar day.
 
-Initially, the project utilized Local Rolling Window Baselines. These models employed Lasso Regression (L1 regularization) with an optimal alpha of 0.45. They were trained locally on a house-by-house basis using a 28-day training window to predict the 29th day, shifting forward iteratively. While this established a baseline, the linear models struggled to consistently outperform a simple naive persistence model (predicting today based on yesterday), primarily due to their inability to capture non-linear interactions between indoor comfort and outdoor weather.
+We did not arrive at one model in one step. The work moved through three stages, and each stage answered a specific question that the previous stage had left open.
 
-The Intermediate Stage transitioned to a global training paradigm using XGBoost. This phase evaluated four distinct strategies: Pooled (one global model), Local (per-house), Seasonal (per-calendar season), and Clustered (behavioral grouping via K-Means). The results from this stage proved that Seasonal Training outperformed all other groupings, confirming that climatic shifts are the primary driver of system behavior variance. Validation in this stage used a strict 80/20 chronological split and a 5-fold expanding window time-series cross-validation.
+### 1.1 Stage 1: Local rolling-window linear models (the baseline)
 
-The Final Stage culminated in a Stratified Blocked Global Framework using LightGBM and CatBoost. This model replaced chronological splits with a Stratified Blocked Time Series Split (14-day blocks) to ensure balanced exposure to all meteorological seasons while strictly preventing temporal leakage. Furthermore, the final implementation includes a local per-house model benchmark, allowing for a direct performance comparison between the global ensemble and specialized local models.
+The first models were fit one house at a time. For each house we used a 28-day window of past days as training data, predicted the 29th day, then slid the window forward by one day and repeated. The features were the previous day's values for runtime, heating hours, cooling hours, the average outdoor temperature, the average outdoor humidity, and the average setpoint, plus the calendar month and a 3-day outdoor-temperature trend. The model was Lasso regression (linear regression with L1 regularization), tuned to alpha = 0.45 because this value gave the best per-house mean absolute error during a small sweep.
 
-## 2. Solution Description: Processing Pipeline
+This stage gave us a working number to beat (average per-house R² of 0.580, MAE of 1.92 hours), but two things became obvious. First, a naive predictor that simply repeats yesterday's runtime as today's runtime achieved an MAE of 1.90 hours, almost identical to the linear model. Second, a single 28-day window is very small: the model rarely saw both heating-season and cooling-season days together, so it could not learn that the same outdoor temperature can mean opposite things in winter (drives heating) and summer (drives cooling).
 
-To maintain data integrity across all 100 devices, a unified processing pipeline was implemented. This pipeline resolves the issues of irregular pings, device blackouts, and midnight-boundary overlaps that plagued earlier iterations.
+### 1.2 Stage 2: Global XGBoost with strategy comparison
 
-**ASCII Pipeline Flow Chart:**
+To break out of the per-house data limit, the next stage trained a single XGBoost regressor that saw data from every house at once. We tested four ways of grouping the data:
 
-    [Raw Manufacturer CSVs] + [Outdoor Weather CSV]
+* **Pooled.** One model for everyone.
+* **Local.** One model per house (the baseline strategy, but with XGBoost).
+* **Seasonal.** Four models, one per meteorological season (winter, spring, summer, fall), each with its own hyperparameter search.
+* **Clustered.** Four models, one per behavioral cluster, where clusters were found by K-Means on each device's runtime statistics.
+
+The data was split chronologically: roughly the first 80% of dates was training, the last 20% was held-out test. Inside the training set, the last 15% of training rows (in time order) was used as a validation slice for early stopping, so the held-out test set was never read until the model was frozen. Hyperparameters for the seasonal strategy came from a 40-trial Optuna search per season. The other three strategies shared one set of Optuna-tuned parameters. The seasonal strategy won (R² = 0.705 on the test set), and Local came in last because each per-house model only had ~417 training rows, not enough for a tree ensemble.
+
+The takeaway from this stage was that **time of year matters more than which house you are looking at**. That observation directly shaped the next stage.
+
+### 1.3 Stage 3: Stratified blocked split with LightGBM and CatBoost (final)
+
+The final stage kept the global-model idea but replaced the chronological split with a **stratified blocked time-series split**. Instead of cutting the calendar at one date and putting all old days in train and all recent days in test, we cut the calendar into 14-day blocks, labeled each block with its season, and then within each season set aside the most recent ~20% of blocks for the test set. This guarantees that the test set contains winter days, spring days, summer days, and fall days, not just the season that happened to fall at the end of the data window.
+
+Two models were trained on this split: a global LightGBM regressor and a global CatBoost regressor. Both used early stopping against a separate validation set drawn from the most recent non-test blocks within each season, so the test split was only scored once, after training and tuning were complete. We also built a per-house LightGBM benchmark on the same split, so we could see whether a global model could be competitive against house-specific models.
+
+A lag-window sweep ran alongside this. We tried every history length from 1 day up to 21 days, recomputed the outdoor-temperature trend feature to match each candidate window, and picked the window with the best validation-set adjusted R² so the test set never influenced the choice.
+
+## 2. Pipeline
+
+The pipeline turns 100 raw thermostat CSVs and one outdoor-weather CSV into a single daily feature table. The hardest part is that thermostats do not report on a fixed schedule. They send pings whenever something changes, sometimes several pings at the same instant, and sometimes nothing at all for hours or days. Every step below exists because of one of those quirks.
+
+```
+[Raw thermostat CSVs] + [Outdoor weather CSV]
               |
               v
-    [standardize_indoor_columns] ---------> Standardization of column names
+   1. Standardize columns         (rename manufacturer-specific
+              |                    names to a single schema)
+              v
+   2. Resolve same-timestamp      (when several pings share the
+      bursts                       same timestamp, forward fill, then
+                                   keep the last)
               |
               v
-    [resolve_same_timestamp_bursts] ------> Group by TS, F-Fill, keep last ping
+   3. Normalize running mode      (map raw labels to one of
+              |                    heat / cool / off / unknown)
+              v
+   4. Inject virtual expiration   (when a gap exceeds 30 minutes,
+      rows                         insert a synthetic "unknown" row
+              |                    to stop state from carrying across)
+              v
+   5. Bounded interpolation       (fill missing indoor temperature
+              |                    only if the gap is <= 30 min)
+              v
+   6. Attach outdoor weather      (interpolate outdoor temp/humidity
+              |                    onto each indoor timestamp)
+              v
+   7. Aggregate to daily          (slice every interval at midnight,
+              |                    weight by duration, summarize)
+              v
+   8. Reindex to a continuous     (fill in any missing calendar days
+      calendar grid                so lag features line up correctly)
               |
               v
-    [normalize_running_mode] -------------> Map states to {heat, cool, off, unknown}
-              |
-              v
-    [inject_virtual_expiration_rows] -----> IF gap > 30min: Insert "unknown" row
-              |                             at gap_start + 30min to kill persistence
-              |
-              v
-    [bounded_time_interpolate] -----------> Linear interpolation of temp/humidity
-              |                             (Strict 30-min validity threshold)
-              |
-              v
-    [aggregate_to_daily] -----------------> Midnight-slicing of event intervals;
-              |                             Time-weighted stats (Mean, Std, Skew)
-              |
-              v
-    [local_grid] -------------------------> Reindex to continuous calendar to
-              |                             prevent leakage during lag generation
-              v
-    [Final Feature Matrix]
+   [Final daily feature table]
+```
 
-This architecture's most critical innovation is the Virtual Expiration Logic. By injecting synthetic rows during blackouts (defined by a strict 30-minute time threshold), the model is prevented from "hallucinating" a running state during periods when a device is offline. This logic includes a specific numeric reset for the setpoint, acting as a crucial "kill-switch" to terminate forward-fill persistence and prevent stale targets from influencing post-blackout predictions. Additionally, the midnight-slicing ensures that runtime is accounted for in the correct calendar day, even for intervals spanning across 00:00:00.
+Three pieces of this pipeline are doing more than the diagram suggests, and they are described in plain terms below.
 
-Comprehensive feature engineering further enhances this pipeline by computing Bessel-corrected weighted variance and weighted skewness/kurtosis, providing the model visibility into thermal environment volatility rather than just simple central tendencies.
+### 2.1 Virtual expiration logic (step 4)
 
-![seasonality](./seasonality.png)
-![runtime versus outdoor temperature](./runtime_v_outdoor_temp.png)
-![runtime versus outdoor humidty](./runtime_v_outdoor_humidity.png)
+A thermostat is supposed to keep us informed about its state. If it tells us at 9:00 AM that it is heating, and the next ping does not arrive until 1:00 PM, we have no way to know whether it heated for the whole four hours or whether it shut off five minutes after the 9:00 AM ping. The naive thing to do, forward-filling the "heating" state until 1:00 PM, would credit the device with four full hours of heating that may never have happened.
 
-This diagnostic suite visualizes the operational density and environmental drivers of the HVAC fleet across meteorological seasons. The violin plot captures the heavy-tailed nature of the runtime data, revealing that while Spring and Fall exhibit high concentrations of idle equipment (near zero runtime), Summer features a consistent, daily cooling bulge, and Winter is characterized by a long tail of extreme, intermittent heating peaks extending to 24 hours.
+To prevent this, the pipeline scans for any gap longer than 30 minutes between consecutive pings. When it finds one, it inserts a **synthetic row 30 minutes into the gap** that marks the running mode as `unknown` and resets the setpoint to a sentinel value. The forward-fill that runs in step 5 stops at this synthetic row instead of reaching across the gap. The end result is that the time during a long blackout is counted as `unknown` rather than being silently treated as whatever state was active just before the blackout. This is what the report later refers to as "virtual expiration": the previous state expires after 30 minutes of silence.
 
-Faceted relationship plots further decompose these operational modes against outdoor weather metrics. In the Runtime vs. Outdoor Temperature panel, we observe the "opposing thermal loads": Winter and Fall show a strong negative correlation (lower temperatures drive heating), while Summer displays a steep positive correlation (higher temperatures drive cooling). Meanwhile, the Runtime vs. Outdoor Humidity panel isolates humidity as a secondary thermal driver, most notably in the Summer, where increased latent load forces higher median runtimes for dehumidification even when sensible temperatures remain moderate.
+### 2.2 Midnight slicing (step 7)
 
-## 3. Data & Validation Methodology
+Daily statistics need a clean cut at midnight. If a 6-hour heating interval starts at 9:00 PM and ends at 3:00 AM the next day, we need the first 3 hours to count toward today and the next 3 hours to count toward tomorrow. The aggregation step finds every interval that crosses a midnight boundary and splits it into pieces, one per calendar day. This keeps daily totals from leaking into adjacent days.
 
-The dataset consists of 100 raw indoor thermostat files and one consolidated outdoor weather file.
+### 2.3 Daily feature engineering (step 7)
 
-### 3.1 Global Modeling vs. Local Benchmarking
+For each calendar day we compute the number of hours spent in each running mode (heat, cool, off, unknown), the time-weighted mean of indoor temperature, setpoint, outdoor temperature, and outdoor humidity, and a set of distributional statistics for those same continuous variables. The distributional statistics include weighted variance, skewness, kurtosis, and the 25th/50th/75th percentiles. We use weighted versions because a setpoint that was held for 23 hours of the day should count more than a setpoint that was held for 1 hour. The variance uses a Bessel-style correction so a day that contained only two distinct readings does not get a misleadingly small spread.
 
-While the final global models (LightGBM/CatBoost) were trained on the unified dataset to maximize generalizability, the project utilized specific inclusion criteria for evaluating local performance. In the Per-House Evaluation phase, houses were only scored if they possessed a minimum viable sample size of 40 training rows and 10 test rows. This ensured that the local benchmark metrics remained statistically reliable when compared against the global "stratified blocked" performance, avoiding skew from houses with insufficient historical reporting.
+These statistics give the downstream model visibility into how *steady* a day was, not just what its averages were. A day with a stable indoor temperature looks very different from a day where the indoor temperature swung wildly, even when their averages match.
 
-### 3.2 Stratified Blocked Time Series Split
+## 3. Data & Validation
 
-To preserve chronological integrity while ensuring seasonal representation, we implemented a 14-day Blocked Split:
+### 3.1 What the dataset looks like
 
-* The timeline is divided into contiguous 14-day blocks.
-* Each block is assigned to a meteorological season based on its midpoint month.
-* **Test Set:** The latest 20% of blocks within each season.
-* **Validation Set:** The latest 15% of the remaining blocks (non-test), used exclusively for early stopping to ensure the test set remains truly "unseen."
+The dataset has 100 thermostat files plus one outdoor-weather file. After preprocessing, every device contributes one row per calendar day for which it had data. Figure 1 shows two views of this dataset: the runtime distribution and the per-device reporting coverage.
 
-**Data Distribution Table:**
+![Figure 1](./report_coverage.png)
+
+**Figure 1.** Top row: histogram of `daily_runtime_hours` on a linear y-axis (left) and a log y-axis (right). Bottom: reporting coverage heatmap, where each row is one of the 100 thermostats, columns are calendar days, and a black cell means the device reported a real target value on that day. Rows are sorted by total coverage so the heaviest reporters sit at the top.
+
+Two things stand out in Figure 1. First, the runtime distribution is heavily skewed. Roughly a quarter of all device-days have runtime near zero (the tall bar at the left), and the rest of the distribution slopes off toward 24-hour days. This is why we report log-y as well, since without it the long tail of medium- and high-runtime days is invisible. Second, the coverage heatmap shows that not every device reports for the same window. The top half of the rows have nearly complete coverage, but the bottom rows arrive late in the calendar and have large white (no-report) blocks. This is the reason the pipeline reindexes each device to a continuous calendar grid before lag generation: a day that is missing for one device is filled with an empty placeholder so a 7-day lag really refers to 7 calendar days back, not 7 *recorded* days back.
+
+### 3.2 When does the system run?
+
+Figure 2 looks at the same target from three different temporal angles: by day of the week, by month, and by season.
+
+![Figure 2](./seasonality.png)
+
+**Figure 2.** Top-left: mean `daily_runtime_hours` by day of week, with one-sigma error bars. Top-right: mean `daily_runtime_hours` by calendar month, with one-sigma error bars. Bottom: violin plot of `daily_runtime_hours` by meteorological season. The violin width shows the density of values, the thick black bar marks the interquartile range, and the white dot marks the median. Sample sizes per season are printed under the x-axis.
+
+The day-of-week panel is essentially flat. The bar heights barely move from Monday through Sunday, and the error bars are wide. We did not find a clean weekly cycle in HVAC runtime, which means weekday/weekend signals (`day_of_week`, `is_weekend`) carry little independent information once seasonal features are in the model. The monthly panel is the opposite: it shows a clear annual cycle, with two peaks (a heating peak around January–February and a much taller cooling peak in July–August) and two troughs (the shoulder months around April–May and October–November). The size of the error bars at the peaks tells us those months also have the widest *spread* across devices. A hot July day means very different things for a small apartment versus a large house.
+
+The seasonal violin makes the distribution shape visible. **Winter** has a long upper tail reaching to 24 hours, meaning a meaningful fraction of winter days saw the system running essentially nonstop. **Spring** is concentrated near zero with a thin tail, since most spring days are idle. **Summer** has the heaviest body of any season, centered around 7–10 hours of runtime, and a long upper tail. **Fall** is bimodal, with a low median (~2.5 hours) but a non-trivial tail of high-runtime days as outdoor temperatures swing. These four shapes are very different from each other, which is why the stratified blocked split (section 3.3) explicitly forces the test set to contain blocks from every season, and why the eventual model needs the flexibility of a tree ensemble rather than a single linear fit.
+
+### 3.3 Stratified blocked time-series split
+
+For the final model we wanted a test set that did three things: (a) come from the future relative to training, so we are not predicting the past, (b) cover all four seasons, so an unusually warm or cold test slice cannot make the model look better or worse than it really is, and (c) keep a separate validation slice that the test set never touches.
+
+The split that satisfies all three is a **14-day stratified blocked split**:
+
+1. Cut the calendar into contiguous 14-day blocks.
+2. Label each block with the meteorological season of its midpoint date (winter = Dec/Jan/Feb, spring = Mar/Apr/May, summer = Jun/Jul/Aug, fall = Sep/Oct/Nov).
+3. Inside each season, sort the blocks chronologically. The most recent 20% of blocks become the test set.
+4. Of the remaining (non-test) blocks in that season, the most recent 15% become the validation set. Anything left is training.
+
+Validation is used only to drive early stopping inside model training. The test set is scored exactly once, after training is complete.
 
 | Split | Block Count | Row Count | Percentage |
 | --- | --- | --- | --- |
@@ -82,33 +133,43 @@ To preserve chronological integrity while ensuring seasonal representation, we i
 | Validation | 8 | 10,688 | ~26% |
 | Testing | 10 | 15,333 | ~36% |
 
-![coverage](./report_coverage.png)
+The row counts deviate from the 80/15/20 block ratios because devices joined and left the dataset at different times. A block in early 2024 contains far fewer rows than a block in late 2025, simply because fewer thermostats were online back then.
 
-The Reporting Heatmap displays the temporal density of pings for all 100 equipment IDs. The visualization justifies the use of the Continuous Calendar Grid (local_grid), as it exposes significant gaps in reporting that would otherwise lead to incorrect lag generation if treated as a sparse series.
+### 3.4 How each model was trained and tested
+
+To keep this comparable across all three modeling stages, here is one explicit sentence per model:
+
+* **Baseline (per-house Lasso).** For each house, the model was trained on a sliding 28-day window of that house's past days using the previous day's six base features plus calendar month and a 3-day outdoor temperature trend, and was tested on the single day immediately after the window. The window then slid forward one day and the procedure repeated, so every test day's prediction came from a model that had never seen that day during training.
+
+* **Intermediate (XGBoost, four strategies).** All four XGBoost variants were trained on the first ~80% of the calendar (chronologically) and tested on the most recent ~20%. The last 15% of the training portion was held out as a validation set used only for early stopping and Optuna-driven hyperparameter selection, so the test slice was never consulted during training. The Pooled variant trained one model on all houses. The Local variant trained one model per house on that house's own training rows. The Seasonal variant trained four models, one per season. The Clustered variant trained one model per behavioral cluster.
+
+* **Final (global LightGBM and CatBoost on the stratified blocked split).** Both global models were trained on all rows whose 14-day block was labeled `train` in the split described in section 3.3 (35 blocks, ~15.8K rows), with the rows labeled `val` (8 blocks, ~10.7K rows) used as the early-stopping validation set, and were tested exactly once on the rows labeled `test` (10 blocks, ~15.3K rows). The per-house LightGBM benchmark used the same row-level split, but trained one model per house on that house's `train` + `val` rows (early stopping was disabled per-house because per-house validation slices were too small), and was scored on that house's `test` rows. Only houses with at least 40 training rows and 10 test rows were scored.
+
+### 3.5 Local benchmarking inclusion criteria
+
+For the per-house LightGBM benchmark we only scored houses that had at least 40 training rows and at least 10 test rows. Houses below either floor were dropped from the per-house aggregate so a five-day test slice could not produce a misleading R². The global model was always scored on the full test set, regardless of per-house coverage.
 
 ## 4. Features & Mutual Information
 
-The feature set evolved from 26 variables (20 eligible for lagging) in the baseline to a comprehensive 146-feature set (6 same-day exogenous and 140 historical lags).
+### 4.1 Feature categories
 
-### 4.1 Feature Categories
+The feature set evolved from 26 variables in the baseline (20 lag-eligible) to a much larger set in the final model: 25 base features were kept after mutual-information ranking, then the lag-worthy subset was expanded into lag_1 through lag_k for the best window size discovered by the lag sweep. The categories are:
 
-| Category | Features |
+| Category | Examples |
 | --- | --- |
-| Daily Runtime/States | daily_heating_hours, daily_cooling_hours, daily_off_hours, daily_unknown_hours, daily_runtime_hours, daily_fan_on_hours, fan_runtime_ratio. |
-| Thermostat Behavior | setpoint_change_count, occupied_ping_count, unoccupied_ping_count. |
-| Statistical Distributions | Individually calculated for indoor temp, setpoint, outdoor temp, and outdoor humidity (min, max, median, iqr, skewness, variance, moments). |
+| Daily runtime / state hours | `daily_heating_hours`, `daily_cooling_hours`, `daily_off_hours`, `daily_unknown_hours`, `daily_runtime_hours` (target) |
+| Thermostat behavior | `setpoint_change_count`, `setpoint_time_weighted_mean`, `setpoint_gap_mean` |
+| Indoor / outdoor distributional stats | min, q25, median, q75, max, IQR, skewness, weighted variance, raw moments, computed for indoor temp, setpoint, outdoor temp, and outdoor humidity |
+| Calendar | `month`, `month_sin`, `month_cos`, `day_of_week`, `is_weekend` |
+| Outdoor environment (same-day) | `true_outside_min`, `true_outside_max`, `true_outside_mean`, `true_humidity_mean`, `outdoor_temp_trend_gradient` |
 
-**Target Lags:** An optimal 10-day lag window was selected after a comprehensive sweep from 1 to 21 days. Critically, the outdoor temperature trend gradient is recomputed dynamically for every window during the sweep, ensuring the weather trend matches the historical memory window currently under evaluation.
+Same-day endogenous variables (such as today's indoor temperature) were excluded from the feature set, because they are concurrent outcomes of HVAC operation rather than predictors that could be observed before the system runs.
 
-**Environmental Context:** Includes true_outside_mean and the aforementioned recomputed trend gradient.
+### 4.2 Top features by mutual information
 
-### 4.2 Feature Ranking
+Mutual information (MI) was computed pairwise between each candidate feature and the target on the training portion of the data, with rows that were missing for a particular feature dropped only for that feature's calculation (so structurally sparse columns were not penalized). The top 25 base features:
 
-Mutual Information (MI) scoring was used to select the base features. The scores presented below are derived from the final preprocessing script audit. Crucially, current-day endogenous variables (like indoor temperature) were excluded to prevent temporal leakage.
-
-**Full Top 25 Base Features (By Mutual Information):**
-
-| Rank | Feature | Score | Rank | Feature | Score |
+| Rank | Feature | MI Score | Rank | Feature | MI Score |
 | --- | --- | --- | --- | --- | --- |
 | 1 | daily_off_hours | 3.1026 | 14 | outdoor_temp_q25 | 0.1986 |
 | 2 | daily_heating_hours | 3.0796 | 15 | outdoor_temp_median | 0.1910 |
@@ -122,24 +183,68 @@ Mutual Information (MI) scoring was used to select the base features. The scores
 | 10 | outdoor_temp_mean | 0.2049 | 23 | setpoint_raw_moment_3 | 0.1008 |
 | 11 | outdoor_temp_time_weighted_mean | 0.2049 | 24 | setpoint_time_weighted_mean | 0.0989 |
 | 12 | true_outside_max | 0.2014 | 25 | daily_unknown_hours | 0.0955 |
-| 13 | outdoor_temp_max | 0.2012 | | | |
+| 13 | outdoor_temp_max | 0.2012 |  |  |  |
 
-![autocorellation and another correlation](./correlation_1.png)
-![more correlation](./correlation_2.png)
+The first three rows look unusually high relative to the rest. They are not data leakage. Those columns describe yesterday's hours-by-state, which is what gets lagged into the model. They sit at the top because daily HVAC behavior is highly autocorrelated. Yesterday's pattern tells you most of what you need to know about today's pattern, and the actual lag sweep confirms this.
 
-This suite of diagnostics evaluates temporal memory and how lagging weather conditions impact current-day equipment runtime. The Autocorrelation Function (ACF) of daily runtime demonstrates a slow, steady decay over a 14-day period rather than a sharp drop-off, confirming strong state persistence where historical behavior is highly predictive of current states.
+### 4.3 Why outdoor temperature matters, and why it matters differently per season
 
-The Seasonal Cross-Correlation (CCF) analysis reveals the necessity of our seasonal stratification. While pooled data appears misleadingly flat due to operational signal cancellation, the seasonal breakdown exposes that Winter operations exhibit a negative correlation with temperature while Summer operations exhibit a strong positive correlation. Finally, the Panel Structure Validation compares per-equipment medians against date-pooled means; the distinct divergence of these curves validates that cross-correlation must be calculated individually on each equipment's timeline to respect the unique behavioral structure of the panel dataset.
+Figure 3 shows the relationship between daily runtime and outdoor temperature, with one panel per season, so the seasonal regimes can be compared directly.
 
-## 5. Results & Comparative Performance
+![Figure 3](./runtime_v_outdoor_temp.png)
 
-The transition from linear models to gradient-boosted ensembles resulted in a significant uplift across all metrics. CatBoost was integrated specifically for its use of symmetric trees and ordered boosting to reduce prediction shift, providing a robust architectural alternative to the leaf-wise growth of LightGBM.
+**Figure 3.** Daily runtime versus the day's mean outdoor temperature (degrees C), faceted by meteorological season. The line is the median runtime within each binned slice of outdoor temperature. The shaded band is the 25th–75th percentile range. Sample sizes per season are printed in the panel titles.
 
-### 5.1 Global Model vs. Baselines
+Reading the panels left-to-right, top-to-bottom: in **winter**, runtime drops sharply as outdoor temperature rises, a classic heating curve where colder days require more compressor time. In **spring**, runtime is low and roughly flat in the middle of the temperature range, with mild upticks at both ends as occasional heating or cooling kicks in. In **summer**, runtime rises with outdoor temperature, the cooling curve, the mirror image of winter's heating curve. **Fall** shows the U-shape that motivates the seasonal split in the first place: at the cold end the systems heat, at the warm end they cool, and in the middle they barely run at all.
 
-The final LightGBM model achieved an R^2 of 0.7705, representing a 32.8% improvement over the average baseline Lasso performance.
+This is exactly the regime shift that a single global linear model cannot represent. A tree model can split on season-related features (`month`, `month_sin`, etc.) and effectively learn one curve per season, which is one of the reasons the LightGBM model outperforms the linear baseline by a wide margin.
 
-**Top 5 LightGBM Gain Features ("Black Box" Logic):**
+Figure 4 plots the same kind of view against outdoor humidity.
+
+![Figure 4](./runtime_v_outdoor_humidity.png)
+
+**Figure 4.** Daily runtime versus the day's mean outdoor humidity (%), faceted by meteorological season. Same encoding as Figure 3.
+
+Humidity is a secondary driver compared with temperature. The clearest signal is in **summer**: runtime rises with humidity until about 70%, then plateaus or falls off, consistent with the air conditioner working harder against a higher latent (moisture) load when the outdoor air is wet. **Winter** shows a smaller, noisier rise. **Spring** and **fall** are roughly flat, because in transitional seasons the system spends most of its time idle and humidity has little to push against. The model uses humidity as an input, but Figure 4 explains why its information gain ranks well below outdoor temperature.
+
+### 4.4 Memory and lag selection
+
+How far back into the past does HVAC behavior remember itself? Figure 5 answers that question for runtime (top) and for the relationship between runtime and outdoor temperature (bottom).
+
+![Figure 5](./correlation_1.png)
+
+**Figure 5.** Top: per-equipment autocorrelation of `daily_runtime_hours` from lag 0 to lag 14 days. Bottom: per-equipment cross-correlation of today's runtime against outdoor temperature shifted backward by k days (the "CCF"). In both panels, faint blue traces are individual devices, the dark blue line is the median across devices, and the shaded band is the 25th–75th percentile range across devices.
+
+Two takeaways from Figure 5:
+
+* **Memory decays slowly.** The autocorrelation at lag 1 is around 0.85, falls to about 0.6 by lag 7, and is still around 0.4 at lag 14. This is the empirical evidence that lag features are worth carrying. Yesterday matters most, but two weeks ago is still informative. It is also why the lag sweep tests up to 21 days.
+* **The pooled CCF looks misleadingly flat.** The bottom panel sits near zero across all lags. That is *not* because outdoor temperature is unrelated to runtime (Figure 3 already showed it is), but because winter heating and summer cooling correlate with temperature in *opposite* directions, and pooling them across the year cancels them out.
+
+Figure 6 confirms that explanation by splitting the same CCF by season.
+
+![Figure 6](./correlation_2.png)
+
+**Figure 6.** Cross-correlation of today's runtime against outdoor temperature lagged by k days, computed per device and faceted by season. Encoding matches Figure 5.
+
+Now the two effects are separated. **Winter** shows a strong negative correlation at small lags: yesterday's cold weather predicts today's heating runtime. **Summer** shows a strong positive correlation at small lags: yesterday's heat predicts today's cooling runtime. **Spring** and **fall** are weak in both directions, consistent with the idle / mixed-mode behavior visible in Figures 3 and 4.
+
+The practical consequence for modeling: because the *direction* of the temperature effect flips between seasons, a global model cannot rely on a single linear weight for outdoor temperature. It needs either a per-season model (the XGBoost intermediate stage) or a non-linear learner that can route on calendar features (the LightGBM final stage).
+
+## 5. Results
+
+### 5.1 Headline numbers
+
+| Stage | Strategy | R² | RMSE (hrs) | MAE (hrs) |
+| --- | --- | --- | --- | --- |
+| Baseline | Local Lasso, 28-day rolling window | 0.580 (avg) | -- | 1.9200 |
+| Intermediate | XGBoost, global seasonal | 0.7050 | 2.9110 | 2.0470 |
+| Final | LightGBM, global stratified blocked | 0.7705 | 2.7372 | 1.9024 |
+
+The final LightGBM model improves R² by about 33% relative to the per-house Lasso baseline and by about 9% relative to the seasonal XGBoost intermediate, while the absolute MAE drops from 2.05 hours back down to 1.90 hours. The MAE matters in practical terms: it is the average error a downstream user (e.g. a load-forecasting application) should expect when the model predicts how many hours an HVAC compressor will run on a given day.
+
+### 5.2 What the model is using
+
+The top features by LightGBM information gain on the final model are:
 
 | Rank | Feature | Information Gain |
 | --- | --- | --- |
@@ -149,31 +254,71 @@ The final LightGBM model achieved an R^2 of 0.7705, representing a 32.8% improve
 | 4 | true_outside_mean | 760,938.6 |
 | 5 | daily_runtime_hours_lag_3 | 465,033.9 |
 
-**Comparative Performance Summary:**
+Yesterday's runtime is by far the strongest feature, then the day before, then off-hours one day back, then today's outdoor temperature, then runtime three days back. This matches the autocorrelation evidence in Figure 5. Recent past behavior drives most of the prediction, with weather as the largest non-lag input.
 
-| Model Stage | Strategy | R^2 | RMSE (hrs) | MAE (hrs) |
-| --- | --- | --- | --- | --- |
-| Baseline | Local Lasso (28-day window) | 0.580 (Avg) | -- | 1.9200 |
-| Intermediate | XGBoost Global Seasonal | 0.7050 | 2.9110 | 2.0470 |
-| Final (LGBM) | Global Stratified Blocked | 0.7705 | 2.7372 | 1.9024 |
+### 5.3 Calibration and residual diagnostics
 
-### 5.2 Diagnostic Evaluation
+Headline metrics tell us how good the average prediction is. They do not tell us whether the model is biased at the high end, biased at the low end, or making symmetric mistakes around the truth. Figure 7 unpacks all three of these on the held-out test set.
 
-While the model performs excellently overall, a deep dive into the "Worst Quartile" reveals that the remaining error is concentrated in houses with extreme behavioral variance. Winter performance achieved R^2 = 0.7206, RMSE = 3.1902 hours, while summer performance reached R^2 = 0.7258, RMSE = 2.7857 hours, demonstrating robust seasonal generalization.
+![Figure 7](./model_preformance_1.png)
 
-![binned stuff on test set](./model_preformance_1.png)
-![worst preformance exploration on test set](./worst_v_rest.png)
+**Figure 7.** Diagnostics for the selected lag-window LightGBM model on the held-out test set (n = 15,333 rows, 206 features). Left: predicted versus actual `daily_runtime_hours`, summarized by equal-count bins of predicted. The dark blue line is the median actual within each bin, the shaded band is the 25th–75th percentile range, and the dashed gray line is `y = x` (perfect calibration). Middle: residual (actual − predicted) versus predicted, same binning scheme. The dashed gray line is the zero-bias reference. Right: histogram of residuals on the test set, with mean and standard deviation printed in the corner.
 
-The Binned Predicted vs. Actual plot demonstrates the calibration of the LightGBM model. The narrow IQR band along the 45-degree diagonal indicates that the model is unbiased for the majority of use cases, with variance only increasing during extreme peak-demand days.
+Three things to note:
 
-![predicted runtime distribution and the actual runtime distribtion for test set](./prediction_v_actual.png)
+* **Calibration is good across the bulk of the runtime range.** In the left panel, the median-actual curve sits almost exactly on top of the `y = x` line up to about 13 hours predicted. The IQR band is narrow and roughly parallel to the diagonal, which means the model is not just hitting the right average. It is consistent across the population of test days at each prediction level. The curve only starts to peel away from the diagonal at the very high end, where the model's largest predictions slightly *under*-shoot the actual runtime.
+* **Mild bias at the extremes.** The middle panel makes the calibration curve's deviation easier to read. The residual median runs slightly negative (between 0 and about −0.7 hours) for predictions in the 0–8 hour range, then crosses zero and rises to roughly +0.4 hours for predictions above 12 hours. In words: the model has a small tendency to *over*-predict on low-runtime days and to *under*-predict on high-runtime days. The IQR band also widens with predicted runtime, which is heteroscedasticity. High-runtime days are inherently noisier than low-runtime days, which is consistent with the wider error bars on summer and winter in Figure 2.
+* **Residuals are roughly symmetric and centered on zero.** The right panel shows the residual histogram is sharply peaked at zero (mean = −0.022 hours, essentially unbiased overall) with a standard deviation of 2.735 hours that matches the headline RMSE. The tails extend out past ±10 hours but are very thin. These are the rare days the model gets badly wrong, and as section 5.7 will show, they cluster on a specific minority of houses.
 
-The Residual Histogram shows a tight, normal distribution centered at zero. The "fat tails" of the distribution represent the Q4 cohort of erratic-usage households, indicating that the model's primary limitation is now unobserved behavioral data rather than algorithmic capacity.
+### 5.4 Does the predicted distribution match the actual one?
 
-### 5.3 Benchmarks
+A regression model can hit the right point estimates on average and still produce a distribution of predictions that looks nothing like the distribution of true values. Figure 8 puts those two distributions side by side as a sanity check.
 
-The naive persistence benchmark (predict yesterday) serves as the project floor. Data verified from the script logs indicate:
+![Figure 8](./prediction_v_actual.png)
 
-* **Naive Persistence (Predict Yesterday):** MAE = 1.90 hours, RMSE = 3.0567 hours
-* **Naive Train Mean:** RMSE = 5.9038 hours
-* **Final Model Lift:** The LightGBM model provides a 10.4% improvement in RMSE over simple persistence, proving that multi-day lags and weather gradients provide substantial predictive value beyond simple temporal autocorrelation.
+**Figure 8.** Violin plots of actual (`y_true`, blue) and predicted (`y_pred`, orange) daily runtime hours on the held-out test set (n = 15,333 rows, lag window k = 1..10). The dashed gray line at the bottom marks the 0-hour floor. The dotted gray line at the top marks the 24-hour ceiling. The text box reports the predicted-side min, max, mean, and counts of predictions outside the [0, 24] range.
+
+The means line up almost exactly: the actual distribution has a median around 6.3 hours, and the predicted distribution has a mean of 6.35 hours. The shapes also match through most of the range. Both violins are widest in the 4–10 hour band and taper off above and below.
+
+Two differences are worth calling out. First, the actual distribution has a narrow spike at the 24-hour ceiling: a real-world fraction of days hit the upper bound when the system runs nonstop. The predicted distribution stops at 22.6 hours. The model is reluctant to commit to the absolute ceiling even when the truth is there. Second, the predicted distribution has 30 values that sit slightly below zero (minimum = −0.110 hours), because the regressor is unconstrained, so it can produce mildly negative predictions on near-zero days. None of the 30 are far enough below zero to materially affect MAE or RMSE, and zero predictions above 24 confirms the upper bound is respected. In production, clipping predictions to `[0, 24]` would be a one-line fix.
+
+### 5.5 Seasonal breakdown
+
+Splitting the test-set metrics by season:
+
+* **Winter:** R² = 0.7206, RMSE = 3.19 hours.
+* **Summer:** R² = 0.7258, RMSE = 2.79 hours.
+
+The two principal regimes (heating-dominant winter and cooling-dominant summer) reach comparable R² in the 0.72 range, which is the evidence that the stratified blocked split achieved its goal. The model performs consistently across seasons, not just on whichever regime happened to dominate the test window.
+
+### 5.6 Comparison against the persistence floor
+
+The simplest possible baseline is to predict today's runtime as yesterday's runtime ("persistence"). On the same test split:
+
+* **Naive persistence:** MAE = 1.90 hours, RMSE = 3.06 hours.
+* **Naive train-mean:** RMSE = 5.90 hours.
+* **Final LightGBM:** MAE = 1.90 hours, RMSE = 2.74 hours.
+
+MAE matches persistence almost exactly, but RMSE drops by about 10%. That gap is meaningful. RMSE penalizes large errors more than MAE does, so a 10% RMSE improvement at parity MAE means the model is making *fewer big misses* than persistence. It is the long, abrupt transitions (a sudden cold snap, a heat wave, a setpoint change) that the lag features and weather inputs are catching beyond what yesterday alone would tell you.
+
+### 5.7 Where the remaining error comes from
+
+Even on the final model, a small minority of houses produce a disproportionate share of the test-set RMSE. To find out what makes those houses different from the rest, we sorted the 100 houses by their per-house test RMSE, drew a line at the 75th percentile, and compared the houses above that line ("worst quartile") to everyone below it ("rest"). Figure 9 shows that comparison.
+
+![Figure 9](./worst_v_rest.png)
+
+**Figure 9.** Worst-quartile (red, n = 25 houses) versus rest (blue, n = 75 houses), where the worst quartile is defined as houses whose per-house RMSE is at or above the 75th percentile (q75 = 3.126 hours). Top-left: histogram of per-house RMSE on the test set, with the q75 cutoff drawn as a dashed red line. The remaining panels are violin plots comparing the two cohorts on per-house mean daily runtime, per-house runtime standard deviation, and per-house mean outdoor temperature. The fan-runtime-ratio panel is empty because too few houses had enough valid fan-state data to populate both cohorts.
+
+Three observations:
+
+* **Worst-quartile houses run more.** Their median per-house mean runtime sits around 7 hours per day, versus about 5 hours per day for the rest. Higher-utilization houses leave more room for the model to be wrong in absolute terms, which inflates RMSE even when the relative error is comparable.
+* **Worst-quartile houses are also more *variable*.** The middle panel is the more interesting one. Per-house runtime standard deviation is meaningfully higher for the worst quartile (median ~6 hours) than for the rest (median ~4.5 hours). These are houses whose day-to-day behavior swings more (sometimes long heat or cool sessions, sometimes nothing), and that swing is what the model struggles to predict.
+* **Outdoor exposure is essentially the same.** The bottom-left panel shows per-house mean outdoor temperature is identical in both cohorts (median ~16 °C). The model is not failing on houses with unusual climate. It is failing on houses with unusual *behavior*, which is the variable type that the current feature set has the least visibility into.
+
+Taken together with Figure 7's heteroscedastic residual band, this points the same direction. The residual error left in the model is increasingly about behavior the data does not record (occupancy patterns, home-specific HVAC quirks, scheduled vs. ad-hoc setpoint changes). Closing it would call for additional inputs, not a different model class.
+
+## 6. Conclusion
+
+The final stratified-blocked LightGBM model reaches R² = 0.7705, RMSE = 2.74 hours, MAE = 1.90 hours on a held-out test set that is balanced across all four seasons and that the model never sees during training or hyperparameter tuning. It improves over both the linear per-house baseline and the seasonal XGBoost intermediate on every reported metric, and it cuts RMSE by 10% over the naive-persistence floor while matching its MAE.
+
+The remaining error is concentrated in a quartile of houses whose runtime variance is unusually high. Adding occupancy or home-characteristic data, rather than tuning the model further, is the most promising path to closing that gap.
