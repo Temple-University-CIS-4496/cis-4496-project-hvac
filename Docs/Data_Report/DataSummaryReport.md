@@ -6,32 +6,36 @@ There are multiple data sets that are used in this project, the first of which i
 
 #### Private Kaggle Data Set: https://www.kaggle.com/datasets/lsobieski/raw-thermostat-data 
 
-#### Figure 1: Features from the Raw dataset
-<img width="627" height="150" alt="Screenshot 2026-04-27 at 4 20 31 PM" src="https://github.com/user-attachments/assets/7d4e5ab9-fc2f-43dd-bff2-67f2e03af579" /><img width="631" height="190" alt="Screenshot 2026-04-27 at 4 22 23 PM" src="https://github.com/user-attachments/assets/750c0a24-4079-47ec-b15a-a7e633a694d6" />
+#### Figure 1: Features from the Raw Dataset
+<div style="display: flex; gap: 10px; align-items: center;">
+ <img style="height: 150px; width: 56%; alt="Screenshot 2026-04-27 at 4 20 31 PM" src="https://github.com/user-attachments/assets/7d4e5ab9-fc2f-43dd-bff2-67f2e03af579" />  
+ <img style="height: 150px; width: 42%;" alt="Screenshot 2026-04-27 at 4 22 23 PM" src="https://github.com/user-attachments/assets/750c0a24-4079-47ec-b15a-a7e633a694d6" />
+</div>
 
-
-#### Figure 2: Additional Features from the Raw dataset 
- <img width="627" height="150" alt="Screenshot 2026-04-27 at 4 19 52 PM" src="https://github.com/user-attachments/assets/8a80e2aa-1b6c-4f81-aacf-e043242a90fd" />
+#### Figure 2: Additional Features from the Raw Dataset 
+ <img width="600" height="150" alt="Screenshot 2026-04-27 at 4 19 52 PM" src="https://github.com/user-attachments/assets/8a80e2aa-1b6c-4f81-aacf-e043242a90fd" />
 
 Figure 1 and 2 show an example of the data distribution from one thermostat before preprocessing. It shows that majority of the data besides set point and timestamp consist of null values and that the set point is between 18.3 degrees Celsius and 25.6 degrees Celsius. 
 
-The time period that is used in the combined data  is from January 27th, 2026, to October 1st 2024. The sampling frequency for the outdoor weather data is every 15 minutes, while the sampling frequency of the thermostat data is recorded at irregular intervals. This means that there is no fixed sampling frequency for the thermostat measurements. 
+The time period used in the combined data is from October 1st, 2024 to January 27th, 2026. The sampling frequency for the outdoor weather data is every 15 minutes, while the sampling frequency of the thermostat data is recorded at irregluar, event-driven intervals. This means that there is no fixed sampling frequency for the thermostat measurements. 
 
 To support predictive modeling, the raw time series data was aggregated into a daily-level dataset with engineered features capturing environmental conditions, system behavior, and temporal structure. This transformation is necessary because HVAC systems operate continuously but respond to both short-term fluctuations and longer-term seasonal patterns. 
 
 ## Data Quality Summary 
 
-Before the processing of the raw data, several data quality issues were identified. Those issues are; a high percentage of data points being null values in the thermostat time series data, occasional gaps in the timestamps, timestamps from the thermostat files did not match up with the timestamps on the outdoor weather data, and the dataset did not initially include a column for HVAC cumulative runtime or energy cost.  
+Before the processing of the raw data, several data quality issues were identified. Those issues include a high percentage of null data points in the thermostat time series data, occasional gaps in the indoor timestamps, the synchronization of ourdoor and indoor data sets, and the lack of a cumulative runtime column in the dataset.  
 
 First, to clean up the data, the thermostat time series data column names were standardized to follow a similar naming convention. This allowed all additional engineered variables to follow a similar naming pattern.  
 
-#### Figure 3: From the Raw Kaggle data set  
+#### Figure 3: From the Raw Kaggle Dataset  
 <img width="631" height="252" alt="Screenshot 2026-04-27 at 4 22 57 PM" src="https://github.com/user-attachments/assets/38e76084-50a0-40e1-b39b-745334954df3" />
 <img width="631" height="190" alt="Screenshot 2026-04-27 at 4 22 35 PM" src="https://github.com/user-attachments/assets/6ab2d4b2-458e-4ae1-8288-a43ab258d1a6" />
 
-Next addressed was then missing values. As seen in figure 3, which shows the mode, occupied, and fan state have mostly null values. The reason why this is the case is if the thermostat records a data point, and the fan state does not change modes; it will put a null value until the mode changes again.  This was primarily addressed using forward filling, which allowed for the imputation of missing observations in a way that preserves temporal continuity. This approach ensured that key variables such as fan state, running mode, setpoint temperature, and indoor temperature maintained complete and continuous time series without introducing artificial variability. Forward filling was applied to preserve temporal continuity in state variables such as fan status, running mode, and setpoint temperature, under the assumption that HVAC states persist between recorded changes. 
+We then addressed the missing values in our dataset. As seen in Figure 3, the mode, occupied, and fan state variables primarily have null values. This is the case because if the thermostat records a data point and the fan state does not change modes, it will record a null value until the mode changes again. We chose to  address this using forward filling, which allowed for the imputation of missing observations in a way that preserved temporal continuity. This approach ensured that key variables such as fan state, running mode, setpoint temperature, and indoor temperature maintained complete and continuous time series without introducing artificial variability. Forward filling was applied to preserve temporal continuity in state variables such as fan status, running mode, and setpoint temperature, under the assumption that HVAC states persist between recorded changes. 
 
-Afte this, the running mode was normalized, then virtual rows were injected. Since the thermostat timestamps are not heartbeat data with consistent time intervals, if there is a time gap that is more than 30 minutes, there is an unknown row that is inserted. Examples of these time gaps can be seen in figures 4 and figures 5. Figure 4 shows a thermostat that has time gabs up most of them are concentrated between the 0-hour mark and the 5-hour mark. However, there are about 5 outliers that have larger gaps with more than 500-hour gaps. This is different to figure 5 where the highest gap is 24 hours. Showing that figure 4 has significant gaps in their thermostat data which could cause issues with the model's accuracy.   
+-----
+
+After this, the running mode was normalized, then virtual rows were injected. Since the thermostat timestamps are not heartbeat data with consistent time intervals, if there is a time gap that is more than 30 minutes, there is an unknown row that is inserted. Examples of these time gaps can be seen in figures 4 and figures 5. Figure 4 shows a thermostat that has time gabs up most of them are concentrated between the 0-hour mark and the 5-hour mark. However, there are about 5 outliers that have larger gaps with more than 500-hour gaps. This is different to figure 5 where the highest gap is 24 hours. Showing that figure 4 has significant gaps in their thermostat data which could cause issues with the model's accuracy.   
 
 #### Figure 4: Time gaps from thermostat 1 
 
