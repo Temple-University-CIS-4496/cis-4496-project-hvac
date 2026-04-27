@@ -132,7 +132,6 @@ After establishing the baseline model, we evaluated additional approaches for co
 
 Due to the observed performance of Lasso regression, additional hyperparameter tuning was conducted to evaluate its sensitivity and feature selection behavior. The optimal regularization strength was found to be α = 0.45.
 
----
 
 
 ## Results (Model Performance)
