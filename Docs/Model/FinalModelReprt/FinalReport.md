@@ -236,7 +236,7 @@ The practical consequence for modeling: because the *direction* of the temperatu
 
 | Stage | Strategy | R² | RMSE (hrs) | MAE (hrs) |
 | --- | --- | --- | --- | --- |
-| Baseline | Local Lasso, 28-day rolling window | 0.706 | -- | 1.9200 |
+| Baseline | Local Lasso, 28-day rolling window | 0.7061 | 2.7491 | 1.9200 |
 | Intermediate | XGBoost, global seasonal | 0.7050 | 2.9110 | 2.0470 |
 | Final | LightGBM, global stratified blocked | 0.7705 | 2.7372 | 1.9024 |
 
