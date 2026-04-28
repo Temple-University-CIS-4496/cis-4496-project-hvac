@@ -129,9 +129,9 @@ Validation is used only to drive early stopping inside model training. The test 
 
 | Split | Block Count | Row Count | Percentage |
 | --- | --- | --- | --- |
-| Training | 35 | 15,771 | ~38% |
+| Training | 33 | 15,771 | ~38% |
 | Validation | 8 | 10,688 | ~26% |
-| Testing | 10 | 15,333 | ~36% |
+| Testing | 12 | 15,333 | ~36% |
 
 The row counts deviate from the 80/15/20 block ratios because devices joined and left the dataset at different times. A block in early 2024 contains far fewer rows than a block in late 2025, simply because fewer thermostats were online back then.
 
@@ -143,7 +143,7 @@ To keep this comparable across all three modeling stages, here is one explicit s
 
 * **Intermediate (XGBoost, four strategies).** All four XGBoost variants were trained on the first ~80% of the calendar (chronologically) and tested on the most recent ~20%. The last 15% of the training portion was held out as a validation set used only for early stopping and Optuna-driven hyperparameter selection, so the test slice was never consulted during training. The Pooled variant trained one model on all houses. The Local variant trained one model per house on that house's own training rows. The Seasonal variant trained four models, one per season. The Clustered variant trained one model per behavioral cluster.
 
-* **Final (global LightGBM and CatBoost on the stratified blocked split).** Both global models were trained on all rows whose 14-day block was labeled `train` in the split described in section 3.3 (35 blocks, ~15.8K rows), with the rows labeled `val` (8 blocks, ~10.7K rows) used as the early-stopping validation set, and were tested exactly once on the rows labeled `test` (10 blocks, ~15.3K rows). The per-house LightGBM benchmark used the same row-level split, but trained one model per house on that house's `train` + `val` rows (early stopping was disabled per-house because per-house validation slices were too small), and was scored on that house's `test` rows. Only houses with at least 40 training rows and 10 test rows were scored.
+* **Final (global LightGBM and CatBoost on the stratified blocked split).** Both global models were trained on all rows whose 14-day block was labeled `train` in the split described in section 3.3 (33 blocks, ~15.8K rows), with the rows labeled `val` (8 blocks, ~10.7K rows) used as the early-stopping validation set, and were tested exactly once on the rows labeled `test` (12 blocks, ~15.3K rows). The per-house LightGBM benchmark used the same row-level split, but trained one model per house on that house's `train` + `val` rows (early stopping was disabled per-house because per-house validation slices were too small), and was scored on that house's `test` rows. Only houses with at least 40 training rows and 10 test rows were scored.
 
 ### 3.5 Local benchmarking inclusion criteria
 
@@ -171,19 +171,19 @@ Mutual information (MI) was computed pairwise between each candidate feature and
 
 | Rank | Feature | MI Score | Rank | Feature | MI Score |
 | --- | --- | --- | --- | --- | --- |
-| 1 | daily_off_hours | 3.1026 | 14 | outdoor_temp_q25 | 0.1986 |
-| 2 | daily_heating_hours | 3.0796 | 15 | outdoor_temp_median | 0.1910 |
-| 3 | daily_cooling_hours | 2.2163 | 16 | outdoor_temp_q75 | 0.1866 |
-| 4 | temp_gradient_mean | 0.2483 | 17 | outdoor_temp_raw_moment_2 | 0.1745 |
-| 5 | setpoint_gap_mean | 0.2404 | 18 | month | 0.1178 |
-| 6 | true_outside_mean | 0.2198 | 19 | outdoor_temp_trend_gradient | 0.1150 |
-| 7 | outdoor_temp_min | 0.2148 | 20 | true_humidity_mean | 0.1069 |
-| 8 | true_outside_min | 0.2131 | 21 | setpoint_raw_moment_2 | 0.1029 |
-| 9 | outdoor_temp_raw_moment_3 | 0.2073 | 22 | setpoint_mean | 0.1025 |
-| 10 | outdoor_temp_mean | 0.2049 | 23 | setpoint_raw_moment_3 | 0.1008 |
-| 11 | outdoor_temp_time_weighted_mean | 0.2049 | 24 | setpoint_time_weighted_mean | 0.0989 |
-| 12 | true_outside_max | 0.2014 | 25 | daily_unknown_hours | 0.0955 |
-| 13 | outdoor_temp_max | 0.2012 |  |  |  |
+| 1 | daily_cooling_hours | 3.0547 | 14 | outdoor_temp_q25 | 0.2149 |
+| 2 | daily_heating_hours | 2.8123 | 15 | outdoor_temp_median | 0.2093 |
+| 3 | daily_off_hours | 2.5655 | 16 | outdoor_temp_raw_moment_2 | 0.2049 |
+| 4 | daily_unknown_hours | 0.4003 | 17 | true_outside_max | 0.1952 |
+| 5 | setpoint_gap_mean | 0.2568 | 18 | true_outside_min | 0.1943 |
+| 6 | outdoor_temp_min | 0.2465 | 19 | outdoor_temp_trend_gradient | 0.1380 |
+| 7 | temp_gradient_mean | 0.2439 | 20 | month | 0.1367 |
+| 8 | outdoor_temp_max | 0.2437 | 21 | outdoor_temp_range | 0.1342 |
+| 9 | true_outside_mean | 0.2337 | 22 | true_humidity_mean | 0.1327 |
+| 10 | outdoor_temp_mean | 0.2288 | 23 | outdoor_hum_min | 0.1192 |
+| 11 | outdoor_temp_time_weighted_mean | 0.2288 | 24 | outdoor_hum_range | 0.1074 |
+| 12 | outdoor_temp_raw_moment_3 | 0.2258 | 25 | outdoor_hum_max | 0.1048 |
+| 13 | outdoor_temp_q75 | 0.2159 |  |  |  |
 
 The first three rows look unusually high relative to the rest. They are not data leakage. Those columns describe yesterday's hours-by-state, which is what gets lagged into the model. They sit at the top because daily HVAC behavior is highly autocorrelated. Yesterday's pattern tells you most of what you need to know about today's pattern, and the actual lag sweep confirms this.
 
@@ -238,7 +238,7 @@ The practical consequence for modeling: because the *direction* of the temperatu
 | --- | --- | --- | --- | --- |
 | Baseline | Local Lasso, 28-day rolling window | 0.7061 | 2.7491 | 1.9200 |
 | Intermediate | XGBoost, global seasonal | 0.7050 | 2.9110 | 2.0470 |
-| Final | LightGBM, global stratified blocked | 0.7705 | 2.7372 | 1.9024 |
+| Final | LightGBM, global stratified blocked | 0.7709 | 2.7347 | 1.8989 |
 
 The final LightGBM model improves R² by about 9% relative to the pooled Lasso baseline and the seasonal XGBoost intermediate, while the absolute MAE drops from 2.05 hours back down to 1.90 hours. The MAE matters in practical terms: it is the average error a downstream user (e.g. a load-forecasting application) should expect when the model predicts how many hours an HVAC compressor will run on a given day.
 
@@ -278,7 +278,7 @@ A regression model can hit the right point estimates on average and still produc
 
 **Figure 8.** Violin plots of actual (`y_true`, blue) and predicted (`y_pred`, orange) daily runtime hours on the held-out test set (n = 15,333 rows, lag window k = 1..10). The dashed gray line at the bottom marks the 0-hour floor. The dotted gray line at the top marks the 24-hour ceiling. The text box reports the predicted-side min, max, mean, and counts of predictions outside the [0, 24] range.
 
-The means line up almost exactly: the actual distribution has a median around 6.3 hours, and the predicted distribution has a mean of 6.35 hours. The shapes also match through most of the range. Both violins are widest in the 4–10 hour band and taper off above and below.
+The means line up almost exactly: the actual distribution has a mean around 6.3 hours, and the predicted distribution has a mean of 6.35 hours. The shapes also match through most of the range. Both violins are widest in the 4–10 hour band and taper off above and below.
 
 Two differences are worth calling out. First, the actual distribution has a narrow spike at the 24-hour ceiling: a real-world fraction of days hit the upper bound when the system runs nonstop. The predicted distribution stops at 22.6 hours. The model is reluctant to commit to the absolute ceiling even when the truth is there. Second, the predicted distribution has 30 values that sit slightly below zero (minimum = −0.110 hours), because the regressor is unconstrained, so it can produce mildly negative predictions on near-zero days. None of the 30 are far enough below zero to materially affect MAE or RMSE, and zero predictions above 24 confirms the upper bound is respected. In production, clipping predictions to `[0, 24]` would be a one-line fix.
 
@@ -286,8 +286,8 @@ Two differences are worth calling out. First, the actual distribution has a narr
 
 Splitting the test-set metrics by season:
 
-* **Winter:** R² = 0.7206, RMSE = 3.19 hours.
-* **Summer:** R² = 0.7258, RMSE = 2.79 hours.
+* **Winter:** R² = 0.7217, RMSE = 3.18 hours.
+* **Summer:** R² = 0.7273, RMSE = 2.78 hours.
 
 The two principal regimes (heating-dominant winter and cooling-dominant summer) reach comparable R² in the 0.72 range, which is the evidence that the stratified blocked split achieved its goal. The model performs consistently across seasons, not just on whichever regime happened to dominate the test window.
 
@@ -296,8 +296,8 @@ The two principal regimes (heating-dominant winter and cooling-dominant summer) 
 The simplest possible baseline is to predict today's runtime as yesterday's runtime ("persistence"). On the same test split:
 
 * **Naive persistence:** MAE = 1.90 hours, RMSE = 3.06 hours.
-* **Naive train-mean:** RMSE = 5.90 hours.
-* **Final LightGBM:** MAE = 1.90 hours, RMSE = 2.74 hours.
+* **Naive train-mean:** RMSE = 5.96 hours.
+* **Final LightGBM:** MAE = 1.90 hours, RMSE = 2.73 hours.
 
 MAE matches persistence almost exactly, but RMSE drops by about 10%. That gap is meaningful. RMSE penalizes large errors more than MAE does, so a 10% RMSE improvement at parity MAE means the model is making *fewer big misses* than persistence. It is the long, abrupt transitions (a sudden cold snap, a heat wave, a setpoint change) that the lag features and weather inputs are catching beyond what yesterday alone would tell you.
 
@@ -311,14 +311,14 @@ Even on the final model, a small minority of houses produce a disproportionate s
 
 Three observations:
 
-* **Worst-quartile houses run more.** Their median per-house mean runtime sits around 7 hours per day, versus about 5 hours per day for the rest. Higher-utilization houses leave more room for the model to be wrong in absolute terms, which inflates RMSE even when the relative error is comparable.
-* **Worst-quartile houses are also more *variable*.** The middle panel is the more interesting one. Per-house runtime standard deviation is meaningfully higher for the worst quartile (median ~6 hours) than for the rest (median ~4.5 hours). These are houses whose day-to-day behavior swings more (sometimes long heat or cool sessions, sometimes nothing), and that swing is what the model struggles to predict.
-* **Outdoor exposure is essentially the same.** The bottom-left panel shows per-house mean outdoor temperature is identical in both cohorts (median ~16 °C). The model is not failing on houses with unusual climate. It is failing on houses with unusual *behavior*, which is the variable type that the current feature set has the least visibility into.
+* **Worst-quartile houses run more.** Their mean per-house runtime sits around 7 hours per day, versus about 5 hours per day for the rest. Higher-utilization houses leave more room for the model to be wrong in absolute terms, which inflates RMSE even when the relative error is comparable.
+* **Worst-quartile houses are also more *variable*.** The middle panel is the more interesting one. Per-house runtime standard deviation is meaningfully higher for the worst quartile (mean ~6 hours) than for the rest (mean ~4.5 hours). These are houses whose day-to-day behavior swings more (sometimes long heat or cool sessions, sometimes nothing), and that swing is what the model struggles to predict.
+* **Outdoor exposure is essentially the same.** The bottom-left panel shows per-house mean outdoor temperature is identical in both cohorts (mean ~16 °C). The model is not failing on houses with unusual climate. It is failing on houses with unusual *behavior*, which is the variable type that the current feature set has the least visibility into.
 
 Taken together with Figure 7's heteroscedastic residual band, this points the same direction. The residual error left in the model is increasingly about behavior the data does not record (occupancy patterns, home-specific HVAC quirks, scheduled vs. ad-hoc setpoint changes). Closing it would call for additional inputs, not a different model class.
 
 ## 6. Conclusion
 
-The final stratified-blocked LightGBM model reaches R² = 0.7705, RMSE = 2.74 hours, MAE = 1.90 hours on a held-out test set that is balanced across all four seasons and that the model never sees during training or hyperparameter tuning. It improves over both the linear per-house baseline and the seasonal XGBoost intermediate on every reported metric, and it cuts RMSE by 10% over the naive-persistence floor while matching its MAE.
+The final stratified-blocked LightGBM model reaches R² = 0.7709, RMSE = 2.73 hours, MAE = 1.90 hours on a held-out test set that is balanced across all four seasons and that the model never sees during training or hyperparameter tuning. It improves over both the linear per-house baseline and the seasonal XGBoost intermediate on every reported metric, and it cuts RMSE by 10% over the naive-persistence floor while matching its MAE.
 
 The remaining error is concentrated in a quartile of houses whose runtime variance is unusually high. Adding occupancy or home-characteristic data, rather than tuning the model further, is the most promising path to closing that gap.
